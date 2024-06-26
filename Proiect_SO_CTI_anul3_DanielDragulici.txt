@@ -1,0 +1,219 @@
+Teme de 'Sisteme de operare' pentru disciplina 'Proiect', CTI, anul 3, semestrul 2.
+Daniel Dragulici
+
+1. Implementati un shell cu urmatoarele functionalitati:
+ - accepta comanda interna 'exit';
+ - accepta comenzi externe de forma 'com arg1 arg2 ...', unde 'com'
+  este un nume de comanda sau un specificator de fisier executabil
+  iar fiecare argument 'arg_n' poate fi:
+  -- un cuvant format din caractere ne-albe diferite de '(' si ')';
+  -- o constructie de forma '(com arg1 arg2 ...)', unde
+   'com arg1 arg2 ...' este ca mai sus; asadar, linia de comanda
+   poate contine '()' imbricate;
+  de fiecare data cand un argument 'arg_n' este de forma '(com arg1 arg2 ...)',
+  el va fi inlocuit in linia de comanda cu output-ul comenzii 'com arg1 arg2 ...',
+  din care se vor elimina capetele de linie '\n';
+ - accepta scripturi cu argumente; un script poate contine o secventa de comenzi
+  ca mai sus.
+ Se va lucra doar in limbajul C, fara a se apela direct sau indirect la
+ shell-ul din sistem. Fisierele script vor fi deschise si citite linie cu linie
+ iar liniile vor fi parsate si interpretate similar comenzilor interactive,
+ efectuandu-se si substitutia argumentelor.
+ Exemplu de functionare:
+ $./myshell
+ > echo abc def (echo 123 456 (pwd) 789)
+ abc def 123 456 /home/dragulici/Desktop/work 789
+ > exit
+ $cat script
+ echo abc $1 (echo 123 $2 (pwd) 789)
+ $./myshell
+ > ./script def 456
+ abc def 123 456 /home/dragulici/Desktop/work 789
+ > exit
+ $
+
+2. Un arbore binar poate fi descris printr-o expresie cu paranteze complete
+  intr-una din variantele urmatoare:
+
+      arbore := @
+      arbore := eticheta [ arbore , arbore ]
+
+  unde '@' inseamna (sub)arborele vid iar 'eticheta' este  eticheta unui nod.
+   Scrieti un  program care primeste in linia de comanda expresia unui arbore
+  de programe ('@' inseamna un program care doar se termina, etichetele sunt
+  specificatorii unor fisiere executabile existente iar componentele expresiei
+  sunt separate prin spatii) si il instantiaza ca arbore de procese care se
+  executa in paralel; fiecare proces executa un nod, fiecare proces diferit
+  de '@' are doi copii, cu care este conectat prin cate un tub anonim; fiecare
+  parinte scrie in tubul copilului stang prin standard output si in tubul
+  copilului drept prin standard error, fiecare copil citeste din tubul
+  parintelui prin standard input. Toate procesele isi vor inchide descriptorii
+  nefolositi pe tuburi.
+   De exemplu, daca programul primeste in linie de comanda:
+
+      p1 [ @ , p2 [ p3 [ @ , @ ] , p4 [ @ , @ ] ] ]
+
+   Se va crea arborele de procese:
+
+      p1
+      |--2-->--0-- p2
+      |            |--2-->--0-- p4
+      |            |            |--2-->--0-- @
+      |            |            |--1-->--0-- @
+      |            |
+      |            |--1-->--0-- p3
+      |                         |--2-->--0-- @
+      |                         |--1-->--0-- @
+      |
+      |--1-->--0-- @
+
+  (p1, p2, p3, p4 sunt fisiere executabile, liniile orizontale punctate sunt
+  tuburi, pe fiecare tub este marcat sensul de circulatie a informatiei prin
+  '>' si sunt notati descriptorii prin care citesc/scriu procesele din capete).
+
+3. Scrieti un program pentru talk intre mai multe persoane, folosind
+ semnale, in felul urmator:
+ - fiecare byte de informatie care trebuie trimis este scris pe 8 biti iar
+ secventa de biti este trimisa ca o succesiune de semnale SIGUSR1 si SIGUSR2;
+ se va asigura protectia la pierderea de semnale;
+ - va exista un program server si un program client; de la un terminal va
+ fi lansat procesul server, care isi afisaza PID-ul si asteapta sa fie
+ contactat; fiecare persoana angajata in talk va lansa de la cate un terminal
+ un proces client, caruia ii va transmite ca argument in linia de comanda
+ PID-ul serverului;
+ - la inceput, clientul transmite serverului PID-ul propriu, apoi, intr-un
+ ciclu, citeste cate o linie de text de la standard input, o parcurge
+ si trimite serverului caracterele din ea (inclusiv blank-urile si capul de
+ linie); daca intre timp primeste linii de mesaj de la server, le afisaza pe
+ standard output;
+- serverul isi instaleaza handlerele cu 'SA_SIGINFO', pentru a putea afla
+ PID-ul emitatorului; pe masura ce clienti noi se conecteaza, el retine
+ intr-o lista PID-urile acestora; cand primeste un caracter de mesaj de la
+ un client, il transmite tuturor celorlalte PID-uri din lista; daca vreun
+ PID devine invalid (eroarea 'ESRCH' pentru 'kill()'), il elimina din lista;
+ cand lista redevine vida, procesul server se termina.
+
+4. Scrieti un program pentru talk intre mai multe persoane, folosind
+ instrumente IPC Sistem V: zona de comunicare va fi un segment de
+ memorie partajata iar accesul in excluziunea mutuala se va proteja
+ prin vectori de semafoare. Fiecare participant va lansa un acelasi
+ program ca un proces separat, indicand camera de discutie (segmentul
+ de memorie partajata) ca argument in linia de comanda.
+
+5. Scrieti un program pentru talk intre mai multe persoane, folosind
+ doar vectori de semafoare IPC Sistem V. Prin semafoare se va realiza
+ si trimiterea codului caracterului si asteptarea. Fiecare participant
+ va lansa un acelasi program ca un proces separat, indicand camera de
+ discutie (cheia externa a vectorului de semafoare) ca argument in linia
+ de comanda.
+
+6. Scrieti un program pentru talk intre mai multe persoane, folosind
+ doar cozi de mesaje IPC Sistem V. Fiecare participant va lansa un acelasi
+ program ca un proces separat, indicand camera de discutie (cheia externa
+ cozii de mesaje) ca argument in linia de comanda.
+
+7. Scrieti un program care rezolva probleme de sah de tipul "Albul/Negrul
+ muta si da mat in <= n mutari". Daca numarul initial de piese si 'n' sunt
+ mici, programul se va termina repede chiar daca va testa toate mutarile
+ valide posibile, deoarece nu va investiga mai mult de 'n' mutari inainte.
+ Programul primeste ca argumente in linia de comanda 'n', culoarea aflata
+ la mutare, lista pieselor initiale si pozitiile lor, sub forma:
+     ./program numar culoare piesa piesa ...
+ unde 'culoare' este 'a' sau 'n' iar fiecare 'piesa' este un sir de 4
+ caractere in care primul este culoarea ('a'/'n'), al doilea tipul piesei
+ ('k','q','r', 'b','n','p' = king, queen, rook, bishop, knight, pawn,
+ respectiv) iar ultimile doua pozitia (exemplu 'c2'). Programul va afisa
+ lista mutarilor, dupa conventiile sah.
+  Odata pornit, programul va initia un thread care va trata pozitia curenta.
+  Threadul care trateaza o pozitie parcurge toate mutarile valide la pozitia
+ respectiva si, pentru fiecare dintre ele, genereaza cate un thread care
+ trateaza pozitia rezultata. Se va asigura ca nu se vor genera mai mult de
+ 'n' niveluri de threaduri ('n' dat ca argument in linia de comanda).
+ Threadurile se vor executa in paralel.
+  Sugestie de abordare/implementare:
+ In general, un thread va trebui sa afle valoarea true/false a urmatoarei afirmatii:
+ S(p, c, k): din pozitia (configuratia pe tabla) 'p', jucatorul avand culoarea 'c',
+             fiind la mutare, poate dat mat in <= 'k' mutari ?
+ Daca notam '=>' implicatia, '<=>' echivalenta, 'c'' culoarea opusa lui
+ 'c' si 'p -c-> q' faptul ca din pozitia 'p' se poate ajunge in pozitia 'q'
+ printr-o mutare a jucatorului 'c', atunci avem:
+ S(p, c, k) <=> 'p este pozitie de mat in favoarea lui c' sau
+                (k > 0 si
+                 (exista q) (p -c-> q si
+                             'q nu este pozitie de pat' si
+                             (orice r) (q -c'-> r => S(r, c, k - 1))
+                            )
+                )
+ Pentru a se putea urmari mutarile, pentru fiecare pozitie se retine nu numai
+ configuratia pieselor ci si secventa mutarilor care au dus de la pozitia
+ initiala la ea. Procesul initial va retine o lista cu pozitiile de mat in
+ favoarea jucatorului dat, care au secventa cea mai lunga de mutari (pot fi
+ mai multe); cand un thread detecteaza ca pozitia tratata este de mat,
+ verifica daca lungimea secventei ei de mutari este >= cea a pozitiilor din
+ lista si, daca da, o inregistreaza acolo (in cazul '>' va elimina celelalte
+ pozitii). Lista va fi protejata prin mutex. Dupa terminarea tuturor
+ threadurilor, procesul initial va afisa lista.
+
+8. Implementati un joc de tancuri care se poate juca in doi, la o aceeasi
+ tastatura. Tancurile sunt caractere-litera (care identifica jucatorul),
+ trag cu caractere-punct si se deplaseaza pe o tabla care contine si ziduri
+ (labirint); tancul se poate deplasa de la tastatura sus, jos, dreapta,
+ stanga; proiectilul este tras la comanda, in directia de deplasare a
+ tancului; proiectilul se deplaseaza animat pe tabla pana loveste un tanc,
+ un zid sau marginea tablei; daca loveste un tanc, i se scade din viata
+ (vietile sunt afisate in colturi); jucatorul care ajunge cu viata la 0
+ pierde; pe tabla se pot afla mai multe proiectile in miscare simultan.
+   Va exista un proces care primeste ca argumente in linia de comanda
+ literele jucatorilor, comenzile de deplasare si foc; acest proces va
+ detine tabla, implementata ca o matrice de pozitii, si alte structuri de
+ date generale. Fiecare tanc va fi un thread separat al procesului, care
+ preia doar inputul destinat lui iar la fiecare proiectil tras va lansa
+ un nou thread care va gestiona proiectilul. Toate threadurile vor comunica
+ prin structurile de date ale procesului gazda si va opera independent pe
+ tabla iar datele accesate in comun (de exemplu, pozitiile pe tabla) vor fi
+ protejate prin mutexuri sau semafoare. Interfata va fi ncurses.
+
+9. Implementati un file commander (gen midnight commander, 'mc'), cu interfata
+ ncurses si urmatoarele functionalitati (invocate prin combinatii de taste):
+- se poate lucra cu un numar oarecare de directoare, specificate ca argumente
+ in linia de comanda; fiecare director este afisat intr-un panou separat;
+ exista un panou sursa curent, un panou destinatie curent si cate un obiect
+ (fisier, director) curent in fiecare panou; panourile si obiectele curente
+ sunt afisate diferit;
+- schimbare panou curent sursa, respectiv destinatie (TAB, respectiv Shift-TAB);
+- schimbare obiect curent in panoul sursa curent (sageti sus/jos);
+- trecerea in director copil/parinte in panoul sursa curent (Enter);
+- copiere fisier/director curent din panoul sursa curent in panoul destinatie
+ curent (F5); odata cu un director, se va copia recursiv arborescenta cu originea
+ in el;
+- stergere fisier/director curent din panoul sursa curent; odata cu un director,
+ se va sterge recursiv arborescenta cu originea in el.
+
+10. Implementati un editor de text in mod pagina, cu urmatoarele functionalitati:
+- lucrul cu mai multe fisiere odata, in tab-uri diferite;
+- comutare intre tab-uri, cu combinatii de taste si mouse.
+- meniu File cu comenzile: New (creaza tab nou), Load (incarca alt fisier in
+ tab-ul curent), Save (se refera la tab-ul curent), Save As (se refera la
+ tab-ul curent), Close (elimina tab-ul curent), Quit; meniul/comenzile din
+ meniu se pot accesa cu combinatii de taste si mouse;
+- operare in fisierul din tab-ul curent prin combinatii de taste:
+ inserare/stergere caracter/cap de linie, deplasare (sageti, poate determina
+ scroll), marcare/demarcare bloc (Shift-sageti, iar blocul apare afisat diferit);
+- copy/cut/paste/delete bloc marcat (Ctrl-C/Ctrl-X/Ctrl-V/Ctrl-Y); se va putea
+ copia/muta dintr-un fisier in altul (i.e. intre tab-uri diferite).
+
+11. Implementati un front-end cu interfata ncurses pentru depanatorul gdb.
+   Vor fi prezente (cel putin) urmatoarele functionalitati:
+ - Lucrul cu un singur program, construit dintr-un singur fisier sursa;
+  programul si argumentele sale in linia de comanda vor fi transmise ca
+  argumente in linia de comanda la lansarea front-end-ului; tot ca argumente
+  in linia de comanda vor fi transmise si variabilele ale caror valori vor fi
+  urmarite la rulare.
+ - Subferestre pentru: vizualizat codul sursa, urmarirea valorilor
+  variabilelor, output; subfereastra pentru codul sursa va permite scroll cu
+  sageti iar linia la care a ajuns executia si liniile cara au breakpoint vor
+  aparea marcate (marcajele vor diferi);
+ - Preluarea fara ENTER a comenzilor: F5 (run sau continue), F6 (plasare sau
+  anulare breakpoint la linia curenta), F7 (start sau step), F8 (start sau
+  next), F9 (break, echivalentul lui Ctrl-c), F10 (kill), F1 (exit din
+  front-end).

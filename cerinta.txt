@@ -1,0 +1,12 @@
+10. Implementati un editor de text in mod pagina, cu urmatoarele functionalitati:
+- lucrul cu mai multe fisiere odata, in tab-uri diferite;
+- comutare intre tab-uri, cu combinatii de taste si mouse.
+- meniu File cu comenzile: New (creaza tab nou), Load (incarca alt fisier in
+ tab-ul curent), Save (se refera la tab-ul curent), Save As (se refera la
+ tab-ul curent), Close (elimina tab-ul curent), Quit; meniul/comenzile din
+ meniu se pot accesa cu combinatii de taste si mouse;
+- operare in fisierul din tab-ul curent prin combinatii de taste:
+ inserare/stergere caracter/cap de linie, deplasare (sageti, poate determina
+ scroll), marcare/demarcare bloc (Shift-sageti, iar blocul apare afisat diferit);
+- copy/cut/paste/delete bloc marcat (Ctrl-C/Ctrl-X/Ctrl-V/Ctrl-Y); se va putea
+ copia/muta dintr-un fisier in altul (i.e. intre tab-uri diferite).
