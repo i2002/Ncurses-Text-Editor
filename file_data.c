@@ -93,7 +93,7 @@ int load_file_data(FileData *file_data, char *file_name)
         }
 
         // Current display line finished (line full or newline character encountered and non null buffer)
-        if (buffer_index == file_data->display_cols || (ch == '\n' && buffer_index > 0))
+        if (buffer_index == file_data->display_cols || ch == '\n')
         {
             // Insert node with the new display line
             FileNode *node = insert_node(file_data, file_data->end, real_line, col_start, buffer, buffer_index);
@@ -108,13 +108,14 @@ int load_file_data(FileData *file_data, char *file_name)
             // Reset buffer index and update column start
             buffer_index = 0;
             col_start += file_data->display_cols;
-        }
 
-        // If newline character was encountered, reset column start and increment real line count
-        if (ch == '\n')
-        {
-            col_start = 0;
-            real_line++;
+            // If newline character was encountered, reset column start and increment real line count
+            if (ch == '\n')
+            {
+                col_start = 0;
+                real_line++;
+                node->data.new_line = 1;
+            }
         }
     }
 
@@ -131,6 +132,8 @@ int load_file_data(FileData *file_data, char *file_name)
             return 1;
         }
     }
+
+    file_data->end->data.new_line = 1;
 
     free(buffer);
     fclose(fin);
@@ -227,6 +230,9 @@ int file_data_insert_char(FileData *file_data, int line, int col, char ins)
                 {
                     return 1;
                 }
+
+                data->new_line = 0;
+                new_node->data.new_line = 1;
             }
 
             // Insert overflow character on the next line
@@ -256,9 +262,12 @@ int file_data_insert_char(FileData *file_data, int line, int col, char ins)
             return 1;
         }
 
+        new_node->data.new_line = 1;
+
         // Remove moved content from line
         data->size = col;
         data->content[data->size] = '\0';
+        data->new_line = 1;
 
         // Shift content of subsequent lines
         (void) normalize_line(file_data, new_node);
@@ -282,9 +291,10 @@ int file_data_delete_char(FileData *file_data, int line, int col)
     // Merge with previous line if it exits
     if (col == -1)
     {
-        if (node->prev != NULL)
+        if (node->prev != NULL && node->prev->data.new_line)
         {
             update_line(node, -1);
+            node->prev->data.new_line = 0;
             (void) normalize_line(file_data, node->prev);
         }
 
@@ -359,6 +369,7 @@ static FileNode* insert_node(FileData *file_data, FileNode *node, int line, int 
     // Initialize node data
     new_node->data.line = line;
     new_node->data.col_start = col_start;
+    new_node->data.new_line = 0;
 
     // Copy data from buffer into new line
     write_line(&new_node->data, content_buffer, len);
@@ -443,6 +454,12 @@ static void delete_node(FileData *file_data, FileNode *node)
         {
             file_data->current_index--;
         }
+    }
+    
+    // Update line flags for previous node
+    if (node->data.new_line && node->prev != NULL && node->prev->data.line == node->data.line)
+    {
+        node->prev->data.new_line = 1;
     }
 
     // Update file data size
@@ -553,6 +570,9 @@ static FileNode* normalize_line(FileData *file_data, FileNode *node)
         nextLine->col_start = line->col_start + file_data->display_cols;
         nextLine->size = left_len;
     }
+
+    // Update line flags
+    line->new_line = node->next == NULL || node->next->data.line != line->line;
 
     // Recursive call for next line, or current line if not completelly filled
     FileNode *nextNode = line->size != file_data->display_cols ? node : node->next;
