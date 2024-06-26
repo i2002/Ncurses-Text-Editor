@@ -1,6 +1,7 @@
 #include <panel.h>
 #include <string.h>
 #include <stdlib.h>
+#include <assert.h>
 #include "file_data.h"
 
 typedef struct
@@ -17,6 +18,7 @@ typedef struct
 void render_tabs(WINDOW *win, char **labels, int len, int current);
 void render_tab(TabData *tab);
 void update_cursor_position(TabData *tab, int input);
+void handle_input(TabData *tab, int input);
 
 WINDOW* init_win(int id)
 {
@@ -28,6 +30,66 @@ WINDOW* init_win(int id)
 typedef struct {
 
 } File;
+
+void check_integrity(FileData *file_data)
+{
+    // FileData assertions
+    assert((file_data->current_index >= 0 && file_data->current_index < file_data->size) || (file_data->current_index == -1 && file_data->current == NULL)); // Current node should be part of internal structure
+    assert(file_data->size >= 0); // Positive size
+    assert(file_data->display_cols > 0); // Positive non 0 number of display columns
+
+    // Node iteration
+    int count = 0;
+    FileNode *c = file_data->start;
+    FileNode *prev = NULL;
+
+    while(c != NULL)
+    {
+        // Linked list assertions
+        assert((c == file_data->start && c->prev == NULL) || c->prev != NULL); // Prev navigation if not first node
+        assert((c == file_data->end && c->next == NULL) || c->next != NULL); // Next navigation if not last node
+        assert(c->prev == prev); // Check backward navigation
+        assert((c == file_data->current && count == file_data->current_index) || count != file_data->current_index); // Current node index should correspond with position in structure and no other
+
+        // FileLine assertions
+        FileLine *data = &c->data;
+
+        // - line integrity
+        if (c->prev != NULL)
+        {
+            FileLine *lastData = &c->prev->data;
+            if (data->line == lastData->line)
+            {
+                assert(lastData->size == file_data->display_cols); // Current display line should continue only a completed previous display line if on the same source file line
+                assert(data->col_start == lastData->col_start + file_data->display_cols); // Col start should keep consistency
+            }
+            else
+            {
+                assert(data->line == lastData->line + 1); // No jumps in source file line number
+                assert(data->col_start == 0); // First display line in source file line starts at character 0
+            }
+        }
+
+        assert(data->new_line == (c->next == NULL || c->next->data.line != data->line)); // Check end of line marked correctly
+    
+        // - content integrity
+        assert(data->size <= file_data->display_cols && data->size >= 0); // Display line size should not exceed configuration in file_data
+        assert(data->content[data->size] == '\0'); // Display line content should be null terminated at size
+
+        for (int i = 0; i < data->size; i++)
+        {
+            assert(data->content[i] != '\0'); // No null characters inside display line content
+        }
+
+        // Next iteration
+        prev = c;
+        c = c->next;
+        count++;
+    }
+
+    assert(count == file_data->size); // Number of display lines should correspond with iterated nodes
+    assert(file_data->end == prev); // Last visited node should be the end one
+}
 
 int main()
 {
@@ -117,6 +179,11 @@ int main()
             top_panel(tabs[current].panel);
             render_tabs(tabs_win, tab_labels, 4, current);
             break;
+
+        default:
+            handle_input(tabs + current, ch);
+            render_tab(tabs + current);
+            break;
         }
         update_panels();
         doupdate();
@@ -197,12 +264,19 @@ void render_tab(TabData *tab)
     int height, width;
     getmaxyx(tab->win, height, width);
 
-    for (int i = tab->scroll_offset; i - tab->scroll_offset < height; i++)
+    for (int i = 0; i < height; i++)
     {
-        if (i < tab->data->size)
+        if (i + tab->scroll_offset < tab->data->size)
         {
-            const FileLine *line = get_file_data_line(tab->data, i);
+            const FileLine *line = get_file_data_line(tab->data, i + tab->scroll_offset);
             mvwaddnstr(tab->win, i, 0, line->content, line->size);
+
+            if (!line->new_line)
+            {
+                wattron(tab->win, COLOR_PAIR(3));
+                mvwaddch(tab->win, i, width - 1, '~');
+                wattroff(tab->win, COLOR_PAIR(3));
+            }
         }
         else
         {
@@ -210,6 +284,7 @@ void render_tab(TabData *tab)
             mvwaddch(tab->win, i, 0, '~');
             wattroff(tab->win, COLOR_PAIR(3));
         }
+        wclrtoeol(tab->win);
     }
     wmove(tab->win, tab->pos_y, tab->pos_x);
 }
@@ -224,6 +299,8 @@ void update_cursor_position(TabData *tab, int input)
     const FileLine *current_line = get_file_data_line(tab->data, tab->scroll_offset + tab->pos_y);
     const FileLine *next_line = get_file_data_line(tab->data, tab->scroll_offset + tab->pos_y + 1);
 
+    int max_pos_x = current_line->new_line ? current_line->size - 1 : current_line->size - 2;
+
     switch(input)
     {
         case KEY_UP:
@@ -232,7 +309,7 @@ void update_cursor_position(TabData *tab, int input)
                 tab->pos_y--;
                 if (tab->pos_x >= prev_line->size)
                 {
-                    tab->pos_x = prev_line->size - 1;
+                    tab->pos_x = prev_line->new_line ? prev_line->size : prev_line->size - 1;
                 }
             }
             break;
@@ -244,7 +321,7 @@ void update_cursor_position(TabData *tab, int input)
                 
                 if (tab->pos_x >= next_line->size)
                 {
-                    tab->pos_x = next_line->size - 1;
+                    tab->pos_x = next_line->new_line ? next_line->size : next_line->size - 1;
                 }
             }
             break;
@@ -262,12 +339,12 @@ void update_cursor_position(TabData *tab, int input)
             break;
 
         case KEY_RIGHT:
-            if (tab->pos_x == width - 2 && next_line != NULL && next_line->line == current_line->line)
+            if (tab->pos_x == width - 2 && !current_line->new_line)
             {
                 tab->pos_y++;
                 tab->pos_x = 0;
             }
-            else if (tab->pos_x < width - 1 && tab->pos_x < current_line->size - 1)
+            else if (tab->pos_x < width - 1 && tab->pos_x <= max_pos_x)
             {
                 tab->pos_x++;
             }
@@ -286,4 +363,27 @@ void update_cursor_position(TabData *tab, int input)
         tab->scroll_offset++;
         tab->pos_y--;
     }
+}
+
+void handle_input(TabData *tab, int input)
+{
+    switch (input)
+    {
+        case KEY_ENTER:
+            file_data_insert_char(tab->data, tab->pos_y + tab->scroll_offset, tab->pos_x, '\n');
+            update_cursor_position(tab, KEY_RIGHT);
+            break;
+
+        case KEY_BACKSPACE:
+            file_data_delete_char(tab->data, tab->pos_y + tab->scroll_offset, tab->pos_x - 1);
+            update_cursor_position(tab, KEY_LEFT);
+            break;
+
+        default:
+            file_data_insert_char(tab->data, tab->pos_y + tab->scroll_offset, tab->pos_x, (char) input);
+            update_cursor_position(tab, KEY_RIGHT);
+            // FIXME: doesn't go to the next line on overflow
+            break;
+    }
+    check_integrity(tab->data);
 }
