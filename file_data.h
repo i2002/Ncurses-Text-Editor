@@ -26,6 +26,7 @@ struct FileLine
     int size;
     int line;
     int col_start;
+    int new_line;
     char *content;
 };
 
