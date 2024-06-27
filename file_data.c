@@ -4,10 +4,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#include <assert.h>
 
 // ----------------------------- Private declarations -----------------------------
 
-static FileNode* insert_node(FileData *file_data, FileNode *node, int line, int col_start, char *content_buffer, int len);
+static FileNode* insert_node(FileData *file_data, FileNode *node, int line, int col_start, int endl, char *content_buffer, int len);
 static void delete_node(FileData *file_data, FileNode *node);
 static FileNode* find_node(const FileData *file_data, int index);
 static FileNode* normalize_line(FileData *file_data, FileNode *node);
@@ -93,10 +94,16 @@ int load_file_data(FileData *file_data, char *file_name)
         }
 
         // Current display line finished (line full or newline character encountered and non null buffer)
-        if (buffer_index == file_data->display_cols || ch == '\n')
+        if (buffer_index == file_data->display_cols || (ch == '\n' && buffer_index > 0))
         {
+            // Previous display line is no longer the last
+            if (col_start != 0)
+            {
+                file_data->end->data.new_line = 0;
+            }
+
             // Insert node with the new display line
-            FileNode *node = insert_node(file_data, file_data->end, real_line, col_start, buffer, buffer_index);
+            FileNode *node = insert_node(file_data, file_data->end, real_line, col_start, 1, buffer, buffer_index);
 
             if (node == NULL)
             {
@@ -108,22 +115,27 @@ int load_file_data(FileData *file_data, char *file_name)
             // Reset buffer index and update column start
             buffer_index = 0;
             col_start += file_data->display_cols;
+        }
 
-            // If newline character was encountered, reset column start and increment real line count
-            if (ch == '\n')
-            {
-                col_start = 0;
-                real_line++;
-                node->data.new_line = 1;
-            }
+        // If newline character was encountered, reset column start and increment real line count
+        if (ch == '\n')
+        {
+            col_start = 0;
+            real_line++;
         }
     }
 
     // Handle any remaining characters in the buffer after EOF
     if (buffer_index > 0)
     {
+        // Previous display line is no longer the last
+        if (col_start != 0)
+        {
+            file_data->end->data.new_line = 0;
+        }
+
         // Insert node with the new display line
-        FileNode *node = insert_node(file_data, file_data->end, real_line, col_start, buffer, buffer_index);
+        FileNode *node = insert_node(file_data, file_data->end, real_line, col_start, 1, buffer, buffer_index);
 
         if (node == NULL)
         {
@@ -132,8 +144,6 @@ int load_file_data(FileData *file_data, char *file_name)
             return 1;
         }
     }
-
-    file_data->end->data.new_line = 1;
 
     free(buffer);
     fclose(fin);
@@ -199,7 +209,7 @@ int file_data_insert_char(FileData *file_data, int line, int col, char ins)
     FileLine *data = &(node->data);
 
     // Edge case for inserting at the end of a source file line
-    int max_col = last_in_line(node) ? data->size : data->size - 1;
+    int max_col = data->new_line ? data->size : data->size - 1;
     if (col > max_col)
     {
         return 1;
@@ -222,17 +232,17 @@ int file_data_insert_char(FileData *file_data, int line, int col, char ins)
         if (overflow)
         {
             // Create new empty display line
-            if (last_in_line(node))
+            if (data->new_line)
             {
-                FileNode *new_node = insert_node(file_data, node, data->line, data->col_start + file_data->display_cols, NULL, 0);
+                FileNode *new_node = insert_node(file_data, node, data->line, data->col_start + file_data->display_cols, 1, NULL, 0);
 
                 if (new_node == NULL)
                 {
                     return 1;
                 }
 
-                data->new_line = 0;
-                new_node->data.new_line = 1;
+                // Previous display line is no longer the last
+                node->data.new_line = 0;
             }
 
             // Insert overflow character on the next line
@@ -254,15 +264,16 @@ int file_data_insert_char(FileData *file_data, int line, int col, char ins)
         int len = data->size - col;
         char *buffer = data->content + col;
 
-        // Insert new node
-        FileNode *new_node = insert_node(file_data, node, data->line, 0, buffer, len);
+        // Insert new line
+        FileNode *new_node = insert_node(file_data, node, data->line + 1, 0, data->new_line, buffer, len);
 
         if (new_node == NULL)
         {
             return 1;
         }
 
-        new_node->data.new_line = 1;
+        // Shift subsequent lines
+        update_line(new_node->next, 1);
 
         // Remove moved content from line
         data->size = col;
@@ -271,9 +282,6 @@ int file_data_insert_char(FileData *file_data, int line, int col, char ins)
 
         // Shift content of subsequent lines
         (void) normalize_line(file_data, new_node);
-
-        // Update line 
-        update_line(new_node, 1);
     }
 
     return 0;
@@ -288,17 +296,26 @@ int file_data_delete_char(FileData *file_data, int line, int col)
         return 1;
     }
 
-    // Merge with previous line if it exits
     if (col == -1)
     {
-        if (node->prev != NULL && node->prev->data.new_line)
+        if (node->prev != NULL)
         {
-            update_line(node, -1);
-            node->prev->data.new_line = 0;
-            (void) normalize_line(file_data, node->prev);
+            if (node->prev->data.new_line)
+            {
+                // Merge with previous line if it exits
+                update_line(node, -1);
+                node->prev->data.new_line = 0;
+                (void) normalize_line(file_data, node->prev);
+                return 0;
+            }
+            else
+            {
+                // Delete last chracter on previous line
+                return file_data_delete_char(file_data, line - 1, node->prev->data.size - 1);
+            }
         }
 
-        return 0;
+        return 1;
     }
 
     // Delete character on line
@@ -324,6 +341,128 @@ int file_data_delete_char(FileData *file_data, int line, int col)
     return 0;
 }
 
+void file_data_check_integrity(FileData *file_data)
+{
+    // FileData assertions
+    assert((file_data->current_index >= 0 && file_data->current_index < file_data->size) || (file_data->current_index == -1 && file_data->current == NULL)); // Current node should be part of internal structure
+    assert(file_data->size >= 0); // Positive size
+    assert(file_data->display_cols > 0); // Positive non 0 number of display columns
+
+    // Node iteration
+    int count = 0;
+    FileNode *c = file_data->start;
+    FileNode *prev = NULL;
+
+    while(c != NULL)
+    {
+        // Linked list assertions
+        assert((c == file_data->start && c->prev == NULL) || c->prev != NULL); // Prev navigation if not first node
+        assert((c == file_data->end && c->next == NULL) || c->next != NULL); // Next navigation if not last node
+        assert(c->prev == prev); // Check backward navigation
+        assert((c == file_data->current && count == file_data->current_index) || count != file_data->current_index); // Current node index should correspond with position in structure and no other
+
+        // FileLine assertions
+        FileLine *data = &c->data;
+
+        // - line integrity
+        if (c->prev != NULL)
+        {
+            FileLine *lastData = &c->prev->data;
+            if (data->line == lastData->line)
+            {
+                assert(lastData->size == file_data->display_cols); // Current display line should continue only a completed previous display line if on the same source file line
+                assert(data->col_start == lastData->col_start + file_data->display_cols); // Col start should keep consistency
+            }
+            else
+            {
+                assert(data->line == lastData->line + 1); // No jumps in source file line number
+                assert(data->col_start == 0); // First display line in source file line starts at character 0
+            }
+        }
+
+        assert(data->new_line == (c->next == NULL || c->next->data.line != data->line)); // Check end of line marked correctly
+    
+        // - content integrity
+        assert(data->size <= file_data->display_cols && data->size >= 0); // Display line size should not exceed configuration in file_data
+        assert((data->size == 0 && data->col_start == 0) || data->size != 0); // Only the beginning of the line can be empty
+        assert(data->content[data->size] == '\0'); // Display line content should be null terminated at size
+
+        for (int i = 0; i < data->size; i++)
+        {
+            assert(data->content[i] != '\0'); // No null characters inside display line content
+        }
+
+        // Next iteration
+        prev = c;
+        c = c->next;
+        count++;
+    }
+
+    assert(count == file_data->size); // Number of display lines should correspond with iterated nodes
+    assert(file_data->end == prev); // Last visited node should be the end one
+}
+
+int file_data_get_display_coords(FileData *file_data, int source_line, int source_col, int *display_line, int *display_col)
+{
+    if (file_data == NULL || display_line == NULL || display_col == NULL)
+    {
+        return 1;
+    }
+
+    FileNode* node = file_data->current != NULL ? file_data->current : file_data->start;
+    int current_index = file_data->current != NULL ? file_data->current_index : 0;
+
+    if (node == NULL)
+    {
+        return 1;
+    }
+
+    // Set iteration direction
+    int dir = 1;
+    if (source_line < node->data.line || (source_line == node->data.line && source_col < node->data.col_start && source_col != -1))
+    {
+        dir = -1;
+    }
+
+    int i = current_index;
+    while (node != NULL)
+    {
+        if (source_line == node->data.line)
+        {
+            int col_min = node->data.col_start;
+            if (node->data.col_start == 0)
+            {
+                col_min--;
+            }
+
+            int col_min_ok = source_col > col_min;
+            int col_max_ok = source_col <= node->data.col_start + node->data.size;
+
+            // source column greater than source line length
+            if (!col_max_ok && node->data.new_line)
+            {
+                source_col = -1;
+            }
+
+            int col_end_ok = source_col == -1 && node->data.new_line;
+
+            // Found the display line
+            if ((col_min_ok && col_max_ok) || col_end_ok)
+            {
+                *display_line = i;
+                *display_col = (source_col == -1) ? node->data.size : source_col - node->data.col_start;
+                return 0;
+            }
+        }
+
+        // Go to the next node
+        i += dir;
+        node = (dir == 1) ? node->next : node->prev;
+    }
+
+    return 1;
+}
+
 
 // ------------------------- Private functions definitions -------------------------
 
@@ -332,18 +471,22 @@ int file_data_delete_char(FileData *file_data, int line, int col)
  * 
  * The newly inserted node is a succesor to the node given as parameter (NULL for the start node).
  * The node data is initialized with provided values.
- * If provided, the data from content buffer is copied to the data of the created node
+ * If provided, the data from content buffer is copied to the data of the created node.
+ * 
+ * By default any new node is marked as end of line. If the previous node is on the same source file
+ * line as the inserted node, the previous node will have its end of line flag removed.
  * 
  * @param file_data FileData structure in which the node should be added
  * @param node the node after which this new node should be inserted (NULL for the first node)
  * @param line the source file line number of the node data
  * @param col_start the index of the start character on the source file line
+ * @param endl flag if the current display line is the last in the source file line
  * @param content_buffer buffer to copy line content (NULL if no copy is wanted)
  * @param len the length of the content buffer (should be 0 if content_buffer is NULL,
  *            should not exceed number of display columns configured in FileData structure)
  * @return FileNode* pointer to the new created node or NULL on error
  */
-static FileNode* insert_node(FileData *file_data, FileNode *node, int line, int col_start, char *content_buffer, int len)
+static FileNode* insert_node(FileData *file_data, FileNode *node, int line, int col_start, int endl, char *content_buffer, int len)
 {
     if (file_data == NULL || (node == NULL && file_data->size != 0) || (content_buffer == NULL && len != 0)) // FIXME: node can be NULL
     {
@@ -369,7 +512,7 @@ static FileNode* insert_node(FileData *file_data, FileNode *node, int line, int 
     // Initialize node data
     new_node->data.line = line;
     new_node->data.col_start = col_start;
-    new_node->data.new_line = 0;
+    new_node->data.new_line = endl;
 
     // Copy data from buffer into new line
     write_line(&new_node->data, content_buffer, len);
@@ -526,15 +669,25 @@ static FileNode* find_node(const FileData *file_data, int index)
 static FileNode* normalize_line(FileData *file_data, FileNode *node)
 {
     // Stop conditions
-    if (node == NULL || 
-        node->next == NULL || 
-        node->data.line != node->next->data.line)
+    if (node == NULL || node->data.new_line)
     {
         return node;
     }
 
     FileLine *line = &node->data;
     FileLine *nextLine = &node->next->data;
+
+    if (nextLine->size == 0)
+    {
+        // Inherit the end of line flag from deleted node
+        line->new_line = nextLine->new_line;
+
+        // Next line has been emptied and can be removed
+        delete_node(file_data, node->next);
+
+        // Retry with next line
+        return normalize_line(file_data, node);
+    }
 
     if (node->data.size == file_data->display_cols)
     {
@@ -554,28 +707,25 @@ static FileNode* normalize_line(FileData *file_data, FileNode *node)
     line->size += move_len;
     line->content[line->size] = '\0';
 
-    if (move_len == nextLine->size)
-    {
-        // Next line has been emptied and can be removed
-        delete_node(file_data, node->next);
-    }
-    else
-    {
-        // Shift remaining characters on the next line and update length
-        int left_len = nextLine->size - move_len;
+    // Shift remaining characters on the next line and update length
+    int left_len = nextLine->size - move_len;
 
-        memmove(nextLine->content, nextLine->content + move_len, (left_len) * sizeof(char));
-        nextLine->content[left_len] = '\0';
-
-        nextLine->col_start = line->col_start + file_data->display_cols;
-        nextLine->size = left_len;
+    if (left_len > 0)
+    {
+        memmove(nextLine->content, nextLine->content + move_len, left_len * sizeof(char));
     }
 
-    // Update line flags
-    line->new_line = node->next == NULL || node->next->data.line != line->line;
+    nextLine->content[left_len] = '\0';
+    nextLine->col_start = line->col_start + file_data->display_cols;
+    nextLine->size = left_len;
 
-    // Recursive call for next line, or current line if not completelly filled
-    FileNode *nextNode = line->size != file_data->display_cols ? node : node->next;
+
+    // Go to the next node if current line completely filled and no deletion pending
+    FileNode *nextNode = node;
+    if (line->size == file_data->display_cols && left_len != 0)
+    {
+        nextNode = node->next;
+    }
     return normalize_line(file_data, nextNode);
 }
 

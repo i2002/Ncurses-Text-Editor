@@ -49,7 +49,7 @@ enum FileDataReturnType
 };
 
 /**
- * @brief Create a file data
+ * @brief Create a file data.
  * 
  * @param cols number of display columns
  * @param file_data pointer to FileData structure to be initialized
@@ -58,14 +58,14 @@ enum FileDataReturnType
 int create_file_data(int cols, FileData *file_data);
 
 /**
- * @brief Free an initialized FileData structure
+ * @brief Free an initialized FileData structure.
  * 
  * @param file_data pointer to initialized FileData structure
  */
 void free_file_data(FileData *file_data);
 
 /**
- * @brief Load contents of a file into an initialized FileData structure
+ * @brief Load contents of a file into an initialized FileData structure.
  * 
  * @param file_data pointer to initialized FileData structure
  * @param file_name name of the file to be loaded
@@ -74,7 +74,7 @@ void free_file_data(FileData *file_data);
 int load_file_data(FileData *file_data, char* file_name);
 
 /**
- * @brief Resize the structure of the FileData number of columns
+ * @brief Resize the structure of the FileData number of columns.
  * 
  * @param file_data pointer to initialized FileData structure
  * @param cols the new number of display columns
@@ -114,7 +114,7 @@ const FileLine* get_file_data_line(FileData *file_data, int index);
 int file_data_insert_char(FileData *file_data, int line, int col, char ins);
 
 /**
- * @brief Delete character at position in FileData
+ * @brief Delete character at position in FileData.
  * 
  * @param file_data pointer to initialized FileData structure
  * @param line position FileData line number
@@ -122,5 +122,27 @@ int file_data_insert_char(FileData *file_data, int line, int col, char ins);
  * @return int 0 for success, 1 for failure
  */
 int file_data_delete_char(FileData *file_data, int line, int col);
+
+/**
+ * @brief Assert FileData structure integrity.
+ * 
+ * Check if linked list structure and internal data is correct.
+ * The function uses asserts, so the program will end if any condition is not satisfied.
+ * 
+ * @param file_data pointer to initialized FileData structure
+ */
+void file_data_check_integrity(FileData *file_data);
+
+/**
+ * @brief Get display coords corresponding to source file info
+ * 
+ * @param file_data pointer to initialized FileData structure
+ * @param source_line index of source file line
+ * @param source_col index of source file column (can be -1 for last column)
+ * @param display_line output parameter for corresponding display line
+ * @param display_col output parameter for corresponding display column
+ * @return int 0 for success, 1 for failure
+ */
+int file_data_get_display_coords(FileData *file_data, int source_line, int source_col, int *display_line, int *display_col);
 
 #endif // FILE_DATA_H

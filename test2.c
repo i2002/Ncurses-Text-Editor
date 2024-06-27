@@ -1,7 +1,6 @@
 #include <panel.h>
 #include <string.h>
 #include <stdlib.h>
-#include <assert.h>
 #include "file_data.h"
 
 typedef struct
@@ -30,66 +29,6 @@ WINDOW* init_win(int id)
 typedef struct {
 
 } File;
-
-void check_integrity(FileData *file_data)
-{
-    // FileData assertions
-    assert((file_data->current_index >= 0 && file_data->current_index < file_data->size) || (file_data->current_index == -1 && file_data->current == NULL)); // Current node should be part of internal structure
-    assert(file_data->size >= 0); // Positive size
-    assert(file_data->display_cols > 0); // Positive non 0 number of display columns
-
-    // Node iteration
-    int count = 0;
-    FileNode *c = file_data->start;
-    FileNode *prev = NULL;
-
-    while(c != NULL)
-    {
-        // Linked list assertions
-        assert((c == file_data->start && c->prev == NULL) || c->prev != NULL); // Prev navigation if not first node
-        assert((c == file_data->end && c->next == NULL) || c->next != NULL); // Next navigation if not last node
-        assert(c->prev == prev); // Check backward navigation
-        assert((c == file_data->current && count == file_data->current_index) || count != file_data->current_index); // Current node index should correspond with position in structure and no other
-
-        // FileLine assertions
-        FileLine *data = &c->data;
-
-        // - line integrity
-        if (c->prev != NULL)
-        {
-            FileLine *lastData = &c->prev->data;
-            if (data->line == lastData->line)
-            {
-                assert(lastData->size == file_data->display_cols); // Current display line should continue only a completed previous display line if on the same source file line
-                assert(data->col_start == lastData->col_start + file_data->display_cols); // Col start should keep consistency
-            }
-            else
-            {
-                assert(data->line == lastData->line + 1); // No jumps in source file line number
-                assert(data->col_start == 0); // First display line in source file line starts at character 0
-            }
-        }
-
-        assert(data->new_line == (c->next == NULL || c->next->data.line != data->line)); // Check end of line marked correctly
-    
-        // - content integrity
-        assert(data->size <= file_data->display_cols && data->size >= 0); // Display line size should not exceed configuration in file_data
-        assert(data->content[data->size] == '\0'); // Display line content should be null terminated at size
-
-        for (int i = 0; i < data->size; i++)
-        {
-            assert(data->content[i] != '\0'); // No null characters inside display line content
-        }
-
-        // Next iteration
-        prev = c;
-        c = c->next;
-        count++;
-    }
-
-    assert(count == file_data->size); // Number of display lines should correspond with iterated nodes
-    assert(file_data->end == prev); // Last visited node should be the end one
-}
 
 int main()
 {
@@ -170,6 +109,8 @@ int main()
         case KEY_DOWN:
         case KEY_LEFT:
         case KEY_RIGHT:
+        case KEY_HOME:
+        case KEY_END:
             update_cursor_position(tabs + current, ch);
             render_tab(tabs + current);
             break;
@@ -286,6 +227,10 @@ void render_tab(TabData *tab)
         }
         wclrtoeol(tab->win);
     }
+
+    wmove(tab->win, height - 1, 0);
+    const FileLine *current_line = get_file_data_line(tab->data, tab->scroll_offset + tab->pos_y);
+    wprintw(tab->win, "(d x: %d, d y: %d, i: %d, s line: %d, s col: %d, size: %d, endl: %d)", tab->pos_x, tab->pos_y, tab->pos_y + tab->scroll_offset, current_line->line, current_line->col_start + tab->pos_x, current_line->size, current_line->new_line);
     wmove(tab->win, tab->pos_y, tab->pos_x);
 }
 
@@ -295,95 +240,118 @@ void update_cursor_position(TabData *tab, int input)
     int height, width;
     getmaxyx(tab->win, height, width);
 
-    const FileLine *prev_line = get_file_data_line(tab->data, tab->scroll_offset + tab->pos_y - 1);
     const FileLine *current_line = get_file_data_line(tab->data, tab->scroll_offset + tab->pos_y);
-    const FileLine *next_line = get_file_data_line(tab->data, tab->scroll_offset + tab->pos_y + 1);
 
-    int max_pos_x = current_line->new_line ? current_line->size - 1 : current_line->size - 2;
+    int temp_x, temp_y;
+
+    int source_line = current_line->line;
+    int source_col = current_line->col_start + tab->pos_x;
 
     switch(input)
     {
         case KEY_UP:
-            if (tab->pos_y > 0)
-            {
-                tab->pos_y--;
-                if (tab->pos_x >= prev_line->size)
-                {
-                    tab->pos_x = prev_line->new_line ? prev_line->size : prev_line->size - 1;
-                }
-            }
+            source_line--;
             break;
 
         case KEY_DOWN:
-            if (tab->pos_y < height - 1 && tab->pos_y + tab->scroll_offset < tab->data->size - 1)
-            {
-                tab->pos_y++;
-                
-                if (tab->pos_x >= next_line->size)
-                {
-                    tab->pos_x = next_line->new_line ? next_line->size : next_line->size - 1;
-                }
-            }
+            source_line++;
             break;
 
         case KEY_LEFT:
-            if (tab->pos_x > 0)
+            if (source_col > 0)
             {
-                tab->pos_x--;
-            }
-            else if (tab->pos_x == 0 && prev_line != NULL && prev_line->line == current_line->line)
-            {
-                tab->pos_y--;
-                tab->pos_x = prev_line->size - 1;
+                source_col--;
             }
             break;
 
         case KEY_RIGHT:
-            if (tab->pos_x == width - 2 && !current_line->new_line)
-            {
-                tab->pos_y++;
-                tab->pos_x = 0;
-            }
-            else if (tab->pos_x < width - 1 && tab->pos_x <= max_pos_x)
-            {
-                tab->pos_x++;
-            }
+            source_col++;
+            break;
+
+        case KEY_ENTER:
+            source_line++;
+            source_col = 0;
+            break;
+
+        case KEY_HOME:
+            source_col = 0;
+            break;
+
+        case KEY_END:
+            source_col = -1;
             break;
     }
 
-    // Adjust scroll offset
-    if (tab->pos_y == 0 && tab->scroll_offset > 0)
+    if (file_data_get_display_coords(tab->data, source_line, source_col, &temp_y, &temp_x) == 0)
     {
-        tab->scroll_offset--;
-        tab->pos_y++;
+        tab->pos_y = temp_y - tab->scroll_offset;
+        tab->pos_x = temp_x;
     }
 
-    if (tab->pos_y == height - 1)
+    // Adjust scroll offset
+    if (tab->pos_y <= 0 && tab->scroll_offset > 0)
     {
-        tab->scroll_offset++;
-        tab->pos_y--;
+        tab->scroll_offset += tab->pos_y - 1;
+        tab->pos_y = 1;
+    }
+
+    if (tab->pos_y >= height - 2) // FIXME: status bar output
+    {
+        tab->scroll_offset += tab->pos_y - height + 3;
+        tab->pos_y = height - 3;
     }
 }
 
 void handle_input(TabData *tab, int input)
 {
+    int res = 1;
+    int cursor_move = 0;
+    int temp_pos_x = tab->pos_x, temp_pos_y = tab->pos_y;
+
+    if (input == KEY_BACKSPACE)
+    {
+        const FileLine *line = get_file_data_line(tab->data, tab->scroll_offset + tab->pos_y);
+        int source_line = line->line;
+        int source_col = line->col_start + tab->pos_x - 1;
+
+        if (source_col == -1)
+        {
+            source_line--;
+        }
+        
+        file_data_get_display_coords(tab->data, source_line, source_col, &temp_pos_y, &temp_pos_x);
+        temp_pos_y -= tab->scroll_offset;
+    }
+
     switch (input)
     {
         case KEY_ENTER:
-            file_data_insert_char(tab->data, tab->pos_y + tab->scroll_offset, tab->pos_x, '\n');
-            update_cursor_position(tab, KEY_RIGHT);
+        case '\n':
+            res = file_data_insert_char(tab->data, tab->pos_y + tab->scroll_offset, tab->pos_x, '\n');
+            cursor_move = KEY_ENTER;
             break;
 
         case KEY_BACKSPACE:
-            file_data_delete_char(tab->data, tab->pos_y + tab->scroll_offset, tab->pos_x - 1);
-            update_cursor_position(tab, KEY_LEFT);
+            res = file_data_delete_char(tab->data, tab->pos_y + tab->scroll_offset, tab->pos_x - 1);
+            cursor_move = KEY_BACKSPACE;
             break;
 
         default:
-            file_data_insert_char(tab->data, tab->pos_y + tab->scroll_offset, tab->pos_x, (char) input);
-            update_cursor_position(tab, KEY_RIGHT);
-            // FIXME: doesn't go to the next line on overflow
+            res = file_data_insert_char(tab->data, tab->pos_y + tab->scroll_offset, tab->pos_x, (char) input);
+            cursor_move = KEY_RIGHT;
             break;
     }
-    check_integrity(tab->data);
+
+    if (res == 0)
+    {
+        if (cursor_move == KEY_BACKSPACE)
+        {
+            tab->pos_x = temp_pos_x;
+            tab->pos_y = temp_pos_y;
+        }
+
+        update_cursor_position(tab, cursor_move);
+    }
+
+    file_data_check_integrity(tab->data);
 }
