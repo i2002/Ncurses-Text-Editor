@@ -31,6 +31,15 @@ const char default_title[] = "Untitled";
  */
 void update_cursor_position(FileView *view, int input);
 
+/**
+ * @brief Set file view path.
+ * 
+ * @param view pointer to initialized FileView structure
+ * @param file_path file path
+ * @return int 0 for succes, 1 for failure
+ */
+int file_view_set_file_path(FileView *view, const char* file_path);
+
 
 // ----------------------- Public definitions -----------------------
 
@@ -122,35 +131,42 @@ int file_view_load_file(FileView *view, const char* file_path)
     }
 
     // Update tab name and file path
-    view->file_path = (char*) malloc((strlen(file_path) + 1) * sizeof(char));
-    if (view->file_path == NULL)
+    if (file_view_set_file_path(view, file_path) != 0)
     {
         return 1;
     }
-
-    char *file_path_copy = (char*) malloc((strlen(file_path) + 1) * sizeof(char));
-    if (file_path_copy == NULL)
-    {
-        return 1;
-    }
-    strcpy(file_path_copy, file_path);
-
-    const char *title_temp = basename(file_path_copy);
-
-    view->title = (char*) malloc((strlen(title_temp) + 1) * sizeof(char));
-    if (view->title == NULL)
-    {
-        free(file_path_copy);
-        return 1;
-    }
-    strcpy(view->title, title_temp);
-    free(file_path_copy);
 
     // Reset positions
     view->pos_x = 0;
     view->pos_y = 0;
     view->scroll_offset = 0;
 
+    return 0;
+}
+
+int file_view_save_file(FileView *view, const char* file_path)
+{
+    if (file_path != NULL)
+    {
+        if (file_view_set_file_path(view, file_path) != 0)
+        {
+            return 1;
+        }
+    }
+
+    if (view->file_path == NULL)
+    {
+        return 1;
+    }
+
+    int ret = save_file_data(view->data, view->file_path);
+
+    if (ret != 0)
+    {
+        return ret;
+    }
+
+    // FIXME: set state to saved
     return 0;
 }
 
@@ -358,4 +374,41 @@ void update_cursor_position(FileView *view, int input)
         view->scroll_offset += view->pos_y - height + 3;
         view->pos_y = height - 3;
     }
+}
+
+int file_view_set_file_path(FileView *view, const char* file_path)
+{
+    // Set view file path
+    if (view->file_path != NULL)
+    {
+        free(view->file_path);
+    }
+
+    view->file_path = (char*) malloc((strlen(file_path) + 1) * sizeof(char));
+    if (view->file_path == NULL)
+    {
+        return 1;
+    }
+    strcpy(view->file_path, file_path);
+
+    // Set view title
+    char *file_path_copy = (char*) malloc((strlen(file_path) + 1) * sizeof(char));
+    if (file_path_copy == NULL)
+    {
+        return 1;
+    }
+    strcpy(file_path_copy, file_path);
+
+    const char *title_temp = basename(file_path_copy);
+
+    view->title = (char*) malloc((strlen(title_temp) + 1) * sizeof(char));
+    if (view->title == NULL)
+    {
+        free(file_path_copy);
+        return 1;
+    }
+    strcpy(view->title, title_temp);
+    free(file_path_copy);
+
+    return 0;
 }

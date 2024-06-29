@@ -63,6 +63,15 @@ int file_view_new_file(FileView *view);
 int file_view_load_file(FileView *view, const char *file_name);
 
 /**
+ * @brief Save file data into file.
+ * 
+ * @param view pointer to initialized FileView structure
+ * @param file_path path of the output file
+ * @return int 0 for success, 1 for failure
+ */
+int file_view_save_file(FileView *view, const char *file_path);
+
+/**
  * @brief Render data into view.
  * 
  * @param view pointer to initialized FileView structure

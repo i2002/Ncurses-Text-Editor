@@ -156,6 +156,36 @@ int load_file_data(FileData *file_data, const char *file_name)
     return 0;
 }
 
+int save_file_data(FileData *file_data, const char* file_path)
+{
+    FILE *fout = fopen(file_path, "w");
+    if (fout == NULL)
+    {
+        perror("Unable to open file"); // FIXME: file opening error handling
+        return 1;
+    }
+
+    FileNode *c = file_data->start;
+
+    while(c != NULL)
+    {
+        for (int i = 0; i < c->data.size; i++)
+        {
+            fputc(c->data.content[i], fout);
+        }
+
+        if (c->data.endl)
+        {
+            fputc('\n', fout);
+        }
+
+        c = c->next;
+    }
+
+    fclose(fout);
+    return 0;
+}
+
 // int resize_file_data_col(FileData *file_data, int cols)
 // {
 //     if (file_data == NULL || cols < 1)

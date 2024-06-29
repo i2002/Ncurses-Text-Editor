@@ -298,7 +298,6 @@ int text_editor_load_file(TextEditor *editor)
 
     if (file_view_load_file(editor->tabs[editor->current_tab], buffer) != 0)
     {
-        // Error while loading file
         alert_dialog(editor->dialog_panel, "Error while loading file");
         return text_editor_close_tab(editor);
     }
@@ -331,8 +330,11 @@ void text_editor_save_file(TextEditor *editor, int save_as)
 
         save_path = buffer;
     }
-    // file_view_save_file(current_view, save_path);
-    // cu tratare erori
+    
+    if (file_view_save_file(current_view, save_path) != 0)
+    {
+        alert_dialog(editor->dialog_panel, "Error while saving file");
+    }
 }
 
 void text_editor_render(TextEditor *editor)

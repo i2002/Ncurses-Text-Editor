@@ -74,6 +74,15 @@ void free_file_data(FileData *file_data);
 int load_file_data(FileData *file_data, const char* file_name);
 
 /**
+ * @brief Save FileData to file
+ * 
+ * @param file_data pointer to initialized FileData structure
+ * @param file_path path of the output file
+ * @return int 0 for success, 1 for failure
+ */
+int save_file_data(FileData *file_data, const char* file_path);
+
+/**
  * @brief Resize the structure of the FileData number of columns.
  * 
  * @param file_data pointer to initialized FileData structure
