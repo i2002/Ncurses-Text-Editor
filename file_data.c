@@ -216,6 +216,11 @@ int file_data_insert_char(FileData *file_data, int line, int col, char ins)
         return 1;
     }
 
+    if (!valid_character(ins))
+    {
+        return 1;
+    }
+
     FileNode *node = line != -1 ? find_node(file_data, line) : NULL;
     FileLine *data = node != NULL ? &(node->data) : NULL;
 
