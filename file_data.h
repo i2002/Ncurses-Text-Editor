@@ -26,7 +26,7 @@ struct FileLine
     int size;
     int line;
     int col_start;
-    int new_line;
+    int endl;
     char *content;
 };
 
@@ -71,7 +71,7 @@ void free_file_data(FileData *file_data);
  * @param file_name name of the file to be loaded
  * @return int 0 for success, 1 for failure
  */
-int load_file_data(FileData *file_data, char* file_name);
+int load_file_data(FileData *file_data, const char* file_name);
 
 /**
  * @brief Resize the structure of the FileData number of columns.
@@ -104,6 +104,9 @@ const FileLine* get_file_data_line(FileData *file_data, int index);
 
 /**
  * @brief Insert character at position in FileData.
+ * 
+ * A new line at the start of the file can be added by setting line to be -1
+ * and col = 0 and ins = '\n'.
  * 
  * @param file_data pointer to initialized FileData structure
  * @param line position FileData line number

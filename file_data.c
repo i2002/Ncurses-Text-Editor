@@ -6,6 +6,8 @@
 #include <errno.h>
 #include <assert.h>
 
+#define TAB_SIZE 4
+
 // ----------------------------- Private declarations -----------------------------
 
 static FileNode* insert_node(FileData *file_data, FileNode *node, int line, int col_start, int endl, char *content_buffer, int len);
@@ -15,9 +17,10 @@ static FileNode* normalize_line(FileData *file_data, FileNode *node);
 static void free_node_data(FileNode *node);
 static void write_line(FileLine *line, char *buffer, int len);
 static char shift_chars(char *buffer, int start, int stop);
-static void update_col_start(FileNode *start, int value);
+// static void update_col_start(FileNode *start, int value);
 static void update_line(FileNode *start, int value);
-static int last_in_line(FileNode *node);
+static char fget_next_char(FILE *f, int *tab_count);
+static int valid_character(int c);
 
 
 // ------------------------- Public functions definitions -------------------------
@@ -36,6 +39,7 @@ int create_file_data(int cols, FileData *file_data)
     file_data->current = NULL;
     file_data->current_index = -1;
 
+    insert_node(file_data, NULL, 0, 0, 1, NULL, 0);
     return 0;
 }
 
@@ -59,12 +63,14 @@ void free_file_data(FileData *file_data)
     file_data->size = 0;
 }
 
-int load_file_data(FileData *file_data, char *file_name)
+int load_file_data(FileData *file_data, const char *file_name)
 {
-    if (file_data == NULL || file_data->start != NULL)
+    if (file_data == NULL)
     {
         return 1;
     }
+
+    free_file_data(file_data);
 
     FILE *fin = fopen(file_name, "r");
     if (fin == NULL)
@@ -83,9 +89,9 @@ int load_file_data(FileData *file_data, char *file_name)
     int buffer_index = 0;
     int real_line = 0;
     int col_start = 0;
+    int tab_count = 0;
     char ch;
-
-    while ((ch = fgetc(fin)) != EOF)
+    while ((ch = fget_next_char(fin, &tab_count)) != EOF)
     {
         // Append character to the buffer
         if (ch != '\n')
@@ -94,12 +100,12 @@ int load_file_data(FileData *file_data, char *file_name)
         }
 
         // Current display line finished (line full or newline character encountered and non null buffer)
-        if (buffer_index == file_data->display_cols || (ch == '\n' && buffer_index > 0))
+        if (buffer_index == file_data->display_cols || (ch == '\n' && (buffer_index > 0 || col_start == 0)))
         {
             // Previous display line is no longer the last
             if (col_start != 0)
             {
-                file_data->end->data.new_line = 0;
+                file_data->end->data.endl = 0;
             }
 
             // Insert node with the new display line
@@ -131,7 +137,7 @@ int load_file_data(FileData *file_data, char *file_name)
         // Previous display line is no longer the last
         if (col_start != 0)
         {
-            file_data->end->data.new_line = 0;
+            file_data->end->data.endl = 0;
         }
 
         // Insert node with the new display line
@@ -200,16 +206,22 @@ const FileLine* get_file_data_line(FileData *file_data, int index)
 
 int file_data_insert_char(FileData *file_data, int line, int col, char ins)
 {
-    if (file_data == NULL || line < 0 || line >= file_data->size || col < 0)
+    if (file_data == NULL || line < -1 || line >= file_data->size || col < 0)
     {
         return 1;
     }
 
-    FileNode *node = find_node(file_data, line);
-    FileLine *data = &(node->data);
+    if (line == -1 && (ins != '\n' || col != 0))
+    {
+        return 1;
+    }
+
+    FileNode *node = line != -1 ? find_node(file_data, line) : NULL;
+    FileLine *data = node != NULL ? &(node->data) : NULL;
+
 
     // Edge case for inserting at the end of a source file line
-    int max_col = data->new_line ? data->size : data->size - 1;
+    int max_col = data->endl ? data->size : data->size - 1;
     if (col > max_col)
     {
         return 1;
@@ -232,7 +244,7 @@ int file_data_insert_char(FileData *file_data, int line, int col, char ins)
         if (overflow)
         {
             // Create new empty display line
-            if (data->new_line)
+            if (data->endl)
             {
                 FileNode *new_node = insert_node(file_data, node, data->line, data->col_start + file_data->display_cols, 1, NULL, 0);
 
@@ -242,7 +254,7 @@ int file_data_insert_char(FileData *file_data, int line, int col, char ins)
                 }
 
                 // Previous display line is no longer the last
-                node->data.new_line = 0;
+                node->data.endl = 0;
             }
 
             // Insert overflow character on the next line
@@ -260,13 +272,22 @@ int file_data_insert_char(FileData *file_data, int line, int col, char ins)
     }
     else
     {
-        // Pointer to data to be copied
-        int len = data->size - col;
-        char *buffer = data->content + col;
+        FileNode *new_node = NULL;
 
-        // Insert new line
-        FileNode *new_node = insert_node(file_data, node, data->line + 1, 0, data->new_line, buffer, len);
+        if (data != NULL)
+        {
+            // Pointer to data to be copied
+            int len = data->size - col;
+            char *buffer = data->content + col;
 
+            // Insert new line
+            new_node = insert_node(file_data, node, data->line + 1, 0, data->endl, buffer, len);
+        }
+        else
+        {
+            new_node = insert_node(file_data, node, 0, 0, data->endl, NULL, 0);
+        }
+        
         if (new_node == NULL)
         {
             return 1;
@@ -275,10 +296,13 @@ int file_data_insert_char(FileData *file_data, int line, int col, char ins)
         // Shift subsequent lines
         update_line(new_node->next, 1);
 
-        // Remove moved content from line
-        data->size = col;
-        data->content[data->size] = '\0';
-        data->new_line = 1;
+        if (data != NULL)
+        {
+            // Remove moved content from line
+            data->size = col;
+            data->content[data->size] = '\0';
+            data->endl = 1;
+        }
 
         // Shift content of subsequent lines
         (void) normalize_line(file_data, new_node);
@@ -300,11 +324,11 @@ int file_data_delete_char(FileData *file_data, int line, int col)
     {
         if (node->prev != NULL)
         {
-            if (node->prev->data.new_line)
+            if (node->prev->data.endl)
             {
                 // Merge with previous line if it exits
                 update_line(node, -1);
-                node->prev->data.new_line = 0;
+                node->prev->data.endl = 0;
                 (void) normalize_line(file_data, node->prev);
                 return 0;
             }
@@ -380,7 +404,7 @@ void file_data_check_integrity(FileData *file_data)
             }
         }
 
-        assert(data->new_line == (c->next == NULL || c->next->data.line != data->line)); // Check end of line marked correctly
+        assert(data->endl == (c->next == NULL || c->next->data.line != data->line)); // Check end of line marked correctly
     
         // - content integrity
         assert(data->size <= file_data->display_cols && data->size >= 0); // Display line size should not exceed configuration in file_data
@@ -439,12 +463,12 @@ int file_data_get_display_coords(FileData *file_data, int source_line, int sourc
             int col_max_ok = source_col <= node->data.col_start + node->data.size;
 
             // source column greater than source line length
-            if (!col_max_ok && node->data.new_line)
+            if (!col_max_ok && node->data.endl)
             {
                 source_col = -1;
             }
 
-            int col_end_ok = source_col == -1 && node->data.new_line;
+            int col_end_ok = source_col == -1 && node->data.endl;
 
             // Found the display line
             if ((col_min_ok && col_max_ok) || col_end_ok)
@@ -488,7 +512,7 @@ int file_data_get_display_coords(FileData *file_data, int source_line, int sourc
  */
 static FileNode* insert_node(FileData *file_data, FileNode *node, int line, int col_start, int endl, char *content_buffer, int len)
 {
-    if (file_data == NULL || (node == NULL && file_data->size != 0) || (content_buffer == NULL && len != 0)) // FIXME: node can be NULL
+    if (file_data == NULL || (content_buffer == NULL && len != 0))
     {
         return NULL;
     }
@@ -512,7 +536,7 @@ static FileNode* insert_node(FileData *file_data, FileNode *node, int line, int 
     // Initialize node data
     new_node->data.line = line;
     new_node->data.col_start = col_start;
-    new_node->data.new_line = endl;
+    new_node->data.endl = endl;
 
     // Copy data from buffer into new line
     write_line(&new_node->data, content_buffer, len);
@@ -600,9 +624,9 @@ static void delete_node(FileData *file_data, FileNode *node)
     }
     
     // Update line flags for previous node
-    if (node->data.new_line && node->prev != NULL && node->prev->data.line == node->data.line)
+    if (node->data.endl && node->prev != NULL && node->prev->data.line == node->data.line)
     {
-        node->prev->data.new_line = 1;
+        node->prev->data.endl = 1;
     }
 
     // Update file data size
@@ -669,7 +693,7 @@ static FileNode* find_node(const FileData *file_data, int index)
 static FileNode* normalize_line(FileData *file_data, FileNode *node)
 {
     // Stop conditions
-    if (node == NULL || node->data.new_line)
+    if (node == NULL || node->data.endl)
     {
         return node;
     }
@@ -680,7 +704,7 @@ static FileNode* normalize_line(FileData *file_data, FileNode *node)
     if (nextLine->size == 0)
     {
         // Inherit the end of line flag from deleted node
-        line->new_line = nextLine->new_line;
+        line->endl = nextLine->endl;
 
         // Next line has been emptied and can be removed
         delete_node(file_data, node->next);
@@ -799,22 +823,22 @@ static void write_line(FileLine *line, char *buffer, int len)
     line->size = len;
 }
 
-/**
- * @brief Update the col start of display lines starting from node
- * 
- * @param start the start node
- * @param value the value to be added to col_start
- */
-static void update_col_start(FileNode *start, int value)
-{
-    FileNode *c = start;
+// /**
+//  * @brief Update the col start of display lines starting from node
+//  * 
+//  * @param start the start node
+//  * @param value the value to be added to col_start
+//  */
+// static void update_col_start(FileNode *start, int value)
+// {
+//     FileNode *c = start;
 
-    while (c != NULL && start->data.line == c->data.line)
-    {
-        c->data.col_start += value;
-        c = c->next;
-    }
-}
+//     while (c != NULL && start->data.line == c->data.line)
+//     {
+//         c->data.col_start += value;
+//         c = c->next;
+//     }
+// }
 
 /**
  * @brief Update the line number of display lines starting from node.
@@ -833,18 +857,49 @@ static void update_line(FileNode *start, int value)
     }
 }
 
-/**
- * @brief Checks if the given node is the last display line in its source file line
- * 
- * @param node pointer to node
- * @return int 0 for false 1 for true
- */
-static int last_in_line(FileNode *node)
+static char fget_next_char(FILE *f, int *tab_count)
 {
-    if (node == NULL)
+    char ch;
+
+    // Normal input
+    if (*tab_count == 0)
     {
-        return 0;
+        ch = fgetc(f);
+    
+        // Start of tab input
+        if (ch == '\t')
+        {
+            ch = ' ';
+            *tab_count = 1;
+        }
+
+        // Skip invalid character input
+        if (!valid_character(ch))
+        {
+            return fget_next_char(f, tab_count);
+        }
+    }
+    // Tab input
+    else
+    {
+        (*tab_count)++;
+        ch = ' ';
+
+        if (*tab_count == TAB_SIZE)
+        {
+            *tab_count = 0;
+        }
     }
 
-    return node->next == NULL || node->data.line != node->next->data.line;
+    return ch;
+}
+
+static int valid_character(int c)
+{
+    if (c == EOF || c == '\n')
+    {
+        return 1;
+    }
+
+    return c >= 32 && c < 128;
 }

@@ -8,7 +8,7 @@ void print_file_data(FileData *file_data)
     for(int i = 0; i < file_data->size; i++)
     {
         const FileLine *data = get_file_data_line(file_data, i);
-        printf("(%d:%d - %d) %s %c\n", data->line, data->col_start, data->size, data->content, data->new_line ? '$' : '>');
+        printf("(%d:%d - %d) %s %c\n", data->line, data->col_start, data->size, data->content, data->endl ? '$' : '>');
     }
     printf("File lines: %d, display lines: %d\n", file_data->end != NULL ? file_data->end->data.line + 1 : 0, file_data->size);
 }
@@ -19,7 +19,7 @@ int main()
     create_file_data(3, &file);
     file_data_check_integrity(&file);
 
-    load_file_data(&file, "test.txt");
+    load_file_data(&file, "test2.txt");
     file_data_check_integrity(&file);
     // print_file_data(&file);
 
