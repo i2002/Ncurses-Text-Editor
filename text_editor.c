@@ -50,6 +50,15 @@ enum FileMenuOptions {
 
 // ----------------------- Private declarations ---------------------
 
+enum ClickPosition
+{
+    CLICK_MENU = -1,
+    CLICK_PREV = -2,
+    CLICK_NEXT = -3,
+    CLICK_OUTSIDE = -4 
+};
+typedef enum ClickPosition ClickPosition;
+
 /**
  * @brief Render application File menu window.
  * 
@@ -80,6 +89,16 @@ void text_editor_update_menu_options(TextEditor *editor);
  * @return int 1 if the program should close, 0 otherwise
  */
 int text_editor_menu_action(TextEditor *editor);
+
+/**
+ * @brief Get clicked action on top bar.
+ * 
+ * @param editor pointer to initialized TextEditor structure
+ * @param y pointer coordonate y (relative to top bar window)
+ * @param x pointer coordonate x (relative to top bar window)
+ * @return ClickPosition clicked tab or special element clicked
+ */
+ClickPosition text_editor_top_bar_click(TextEditor *editor, int y, int x);
 
 
 // ----------------------- Public definitions -----------------------
@@ -373,12 +392,42 @@ void text_editor_save_file(TextEditor *editor, int save_as)
     }
 }
 
+void text_editor_set_current_tab(TextEditor *editor, int index)
+{
+    if (editor->n_tabs == 0)
+    {
+        return;
+    }
+
+    if (index >= editor->n_tabs)
+    {
+        editor->current_tab = 0;
+    }
+    else if (index < 0)
+    {
+        editor->current_tab = editor->n_tabs - 1;
+    }
+    else
+    {
+        editor->current_tab = index;
+    }
+    
+    text_editor_render(editor);
+    FileView *current_view = text_editor_get_current_view(editor);
+    top_panel(current_view->panel);
+    file_view_render(current_view);
+}
+
 void text_editor_render(TextEditor *editor)
 {
     WINDOW *win = editor->top_bar_win;
-    int menu_offset = 11;
-    int pos, i, start_i;
     int width = getmaxx(win);
+    int menu_len = 11;
+    int indicator_len = 2;
+    int tabs_len = width - menu_len - 2 * indicator_len;
+    int prev_offset = menu_len;
+    int tabs_offset = menu_len + indicator_len;
+    int next_offset = menu_len + indicator_len + tabs_len;
 
     werase(win);
     wbkgd(win, COLOR_PAIR(INTERFACE_COLOR));
@@ -389,54 +438,71 @@ void text_editor_render(TextEditor *editor)
     wattroff(win, COLOR_PAIR(MENU_COLOR));
     
     // Compute start position
-    pos = menu_offset + 1;
-    start_i = 0;
-
-    for (i = 0; i <= editor->current_tab; i++)
+    int tabs_pos = 0;
+    for (int i = 0; i <= editor->current_tab; i++)
     {
         const char *title = file_view_get_title(editor->tabs[i]);
-        pos += strlen(title) + (i == 0 ? 2 : 3);
+        tabs_pos += strlen(title) + (i == 0 ? 2 : 3);
     }
 
-    while (pos >= width - 5 && start_i < editor->current_tab)
+    int start_i = 0;
+    while (tabs_pos > tabs_len && start_i < editor->current_tab)
     {
         const char *title = file_view_get_title(editor->tabs[start_i]);
-        pos -= strlen(title) + (start_i == 0 ? 2 : 3);
+        tabs_pos -= strlen(title) + 3;
         start_i++;
     }
 
     // Prev indicator
-    wattron(win, start_i == 0 ? A_DIM : A_BOLD);
-    mvwaddch(win, 0, menu_offset + 1, '<');
-    wattroff(win, start_i == 0 ? A_DIM : A_BOLD);
+    wattron(win, start_i == 0 ? INTERFACE_DISABLED : A_BOLD);
+    mvwaddstr(win, 0, prev_offset, " <");
+    wattroff(win, start_i == 0 ? INTERFACE_DISABLED : A_BOLD);
 
     // Show tabs
-    pos = menu_offset + 3;
-    for (i = start_i; i < editor->n_tabs && pos < width - 3; i++)
+    tabs_pos = 0;
+    int i;
+    wmove(win, 0, tabs_offset);
+    for (i = start_i; i < editor->n_tabs; i++)
     {
-        pos++;
+        const char *title = file_view_get_title(editor->tabs[i]);
+
+        // Not enough space for tab
+        if (tabs_pos + strlen(title) + 2 > tabs_len && i != start_i)
+        {
+            break;
+        }
+
+        // Add separator
+        if (i != start_i)
+        {
+            waddch(win, ACS_VLINE);
+            tabs_pos++;
+        }
+
+        // Highlight current tab
         if (i == editor->current_tab)
         {
             wattron(win, A_STANDOUT);
         }
 
-        const char *title = file_view_get_title(editor->tabs[i]);
-        mvwaddch(win, 0, pos - 1, ' ');
-        mvwaddnstr(win, 0, pos, title, width - 3 - pos);
-        mvwaddch(win, 0, pos + strlen(title), ' ');
-        wattroff(win, A_STANDOUT);
-        pos += strlen(title) + 2;
+        // Print tab 
+        waddch(win,' ');
+        waddnstr(win, title, tabs_len - tabs_pos - 1);
 
-        if (i < editor->n_tabs - 1 && pos < width - 2)
+        if (tabs_pos + strlen(title) + 2 <= tabs_len)
         {
-            mvwaddch(win, 0, pos - 1, ACS_VLINE);
+            waddch(win, ' ');
         }
+
+        wattroff(win, A_STANDOUT);
+
+        tabs_pos += strlen(title) + 2;
     }
 
     // Next indicator
-    wattron(win, i == editor->n_tabs ? A_DIM : A_BOLD);
-    mvwaddch(win, 0, width - 2, '>');
-    wattroff(win, i == editor->n_tabs ? A_DIM : A_BOLD);
+    wattron(win, i == editor->n_tabs ? INTERFACE_DISABLED : A_BOLD);
+    mvwaddstr(win, 0, next_offset, "> ");
+    wattroff(win, i == editor->n_tabs ? INTERFACE_DISABLED : A_BOLD);
 }
 
 int text_editor_handle_input(TextEditor *editor, int input)
@@ -444,6 +510,7 @@ int text_editor_handle_input(TextEditor *editor, int input)
     int ret = 0;
     FileView *current_view = text_editor_get_current_view(editor);
 
+    MEVENT event;
     if (!panel_hidden(editor->menu_panel))
     {
         wrefresh(editor->menu_win);
@@ -474,6 +541,37 @@ int text_editor_handle_input(TextEditor *editor, int input)
     {
         switch (input)
         {
+            case KEY_MOUSE:
+                if(getmouse(&event) == OK)
+			    {
+                    if (wmouse_trafo(editor->top_bar_win, &event.y, &event.x, FALSE) == TRUE)
+                    {
+                        ClickPosition clicked_item = text_editor_top_bar_click(editor, event.y, event.x);
+
+                        switch(clicked_item)
+                        {
+                            case CLICK_MENU:
+                                ungetch(KEY_F(1));
+                                break;
+
+                            case CLICK_NEXT:
+                                text_editor_set_current_tab(editor, editor->current_tab + 1);
+                                break;
+                            
+                            case CLICK_PREV:
+                                text_editor_set_current_tab(editor, editor->current_tab - 1);
+                                break;
+
+                            case CLICK_OUTSIDE:
+                                break;
+                        
+                            default:
+                                text_editor_set_current_tab(editor, clicked_item);
+                                break;
+                        }
+                    }
+                }
+                break;
             case KEY_F(1):
                 show_panel(editor->menu_panel);
                 top_panel(editor->menu_panel);
@@ -481,18 +579,11 @@ int text_editor_handle_input(TextEditor *editor, int input)
                 break;
 
             case 9:
-                if (editor->n_tabs > 0)
-                {
-                    editor->current_tab = (editor->current_tab + 1) % editor->n_tabs;
-                    text_editor_render(editor);
-                    current_view = text_editor_get_current_view(editor);
-                }
+                text_editor_set_current_tab(editor, editor->current_tab + 1);
+                break;
 
-                if (current_view != NULL)
-                {
-                    top_panel(current_view->panel);
-                    file_view_render(current_view);
-                }
+            case KEY_BTAB:
+                text_editor_set_current_tab(editor, editor->current_tab - 1);
                 break;
 
             default:
@@ -507,10 +598,6 @@ int text_editor_handle_input(TextEditor *editor, int input)
 
     update_panels();
     doupdate();
-    // wrefresh(editor->menu_win);
-    // wrefresh(editor->dialog_win);
-    // wrefresh(editor->top_bar_win);
-    // refresh();
     return ret;
 }
 
@@ -636,4 +723,74 @@ int text_editor_menu_action(TextEditor *editor)
     }
 
     return ret;
+}
+
+ClickPosition text_editor_top_bar_click(TextEditor *editor, int y, int x)
+{
+    WINDOW *win = editor->top_bar_win;
+    int width = getmaxx(win);
+    int menu_len = 11;
+    int indicator_len = 2;
+    int tabs_len = width - menu_len - 2 * indicator_len;
+    int prev_offset = menu_len;
+    int tabs_offset = menu_len + indicator_len;
+    int next_offset = menu_len + indicator_len + tabs_len;
+
+    // Click in menu region
+    if (x <= menu_len)
+    {
+        return CLICK_MENU;
+    }
+
+    // Click in prev region
+    if (x >= prev_offset && x < prev_offset + indicator_len)
+    {
+        return CLICK_PREV;
+    }
+
+    // Click in next region
+    if (x >= next_offset && x < next_offset + indicator_len)
+    {
+        return CLICK_NEXT;
+    }
+
+    int tabs_pos = 0;
+    for (int i = 0; i <= editor->current_tab; i++)
+    {
+        const char *title = file_view_get_title(editor->tabs[i]);
+        tabs_pos += strlen(title) + (i == 0 ? 2 : 3);
+    }
+
+    int start_i = 0;
+    while (tabs_pos > tabs_len && start_i < editor->current_tab)
+    {
+        const char *title = file_view_get_title(editor->tabs[start_i]);
+        tabs_pos -= strlen(title) + 3;
+        start_i++;
+    }
+
+    // Click in tabs region
+    if (x >= tabs_offset && x < tabs_offset + tabs_len)
+    {
+        tabs_pos = 0;
+        for (int i = start_i; i < editor->n_tabs && x >= tabs_offset + tabs_pos; i++)
+        {
+            const char *title = file_view_get_title(editor->tabs[i]);
+
+            // Add separator
+            if (i != start_i)
+            {
+                tabs_pos++;
+            }
+
+            // Click inside tab
+            if (x < tabs_offset + tabs_pos + strlen(title) + 2)
+            {
+                return i;
+            }
+            tabs_pos += strlen(title) + 2;
+        }
+    }
+
+    return CLICK_OUTSIDE;
 }

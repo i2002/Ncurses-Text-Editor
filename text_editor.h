@@ -80,6 +80,14 @@ int text_editor_load_file(TextEditor *editor);
 void text_editor_save_file(TextEditor *editor, int save_as);
 
 /**
+ * @brief Set editor current tab.
+ * 
+ * @param editor pointer to TextEditor instance
+ * @param index new tab index
+ */
+void text_editor_set_current_tab(TextEditor *editor, int index);
+
+/**
  * @brief Render text editor tabs.
  * 
  * @param editor pointer to TextEditor instance

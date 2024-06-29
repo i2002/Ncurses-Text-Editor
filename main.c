@@ -11,6 +11,7 @@ int main()
     cbreak();
     noecho();
     keypad(stdscr, TRUE);
+    mousemask(BUTTON1_CLICKED, NULL);
     ESCDELAY = 10;
 
     // Initialize colors

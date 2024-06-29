@@ -13,8 +13,8 @@ OBJS = $(SRCS:%.c=$(BUILD)/%.o)
 all: main
 
 # Main target
-main: $(OBJS)
-	$(CC) -o $@ main.c $^ $(LIBS)
+main: main.c $(OBJS)
+	$(CC) -o $@ $^ $(LIBS)
 
 # Rule for compiling object files
 $(BUILD)/%.o: %.c %.h
