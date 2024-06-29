@@ -111,7 +111,13 @@ void free_file_view(FileView *view)
 int file_view_new_file(FileView *view)
 {
     // Insert the first line into the file
-    return file_data_insert_char(view->data, -1, 0, '\n');
+    if (file_data_insert_char(view->data, -1, 0, '\n') != 0)
+    {
+        return 1;
+    }
+
+    view->status = FILE_VIEW_STATUS_NEW_FILE;
+    return 0;
 }
 
 int file_view_load_file(FileView *view, const char* file_path)
@@ -141,6 +147,9 @@ int file_view_load_file(FileView *view, const char* file_path)
     view->pos_y = 0;
     view->scroll_offset = 0;
 
+    // Update status
+    view->status = FILE_VIEW_STATUS_SAVED;
+
     return 0;
 }
 
@@ -169,7 +178,7 @@ int file_view_save_file(FileView *view, const char* file_path)
         }
     }
 
-    // FIXME: set state to saved
+    view->status = FILE_VIEW_STATUS_SAVED;
     return 0;
 }
 
@@ -204,7 +213,7 @@ void file_view_render(FileView *view)
     const FileLine *current_line = get_file_data_line(view->data, view->scroll_offset + view->pos_y);
     if (current_line != NULL)
     {
-        mvwprintw(view->win, height - 1, 0, "(d x: %d, d y: %d, i: %d, s line: %d, s col: %d, size: %d, endl: %d)", view->pos_x, view->pos_y, view->pos_y + view->scroll_offset, current_line->line, current_line->col_start + view->pos_x, current_line->size, current_line->endl);
+        mvwprintw(view->win, height - 1, 0, "(d x: %d, d y: %d, i: %d, s line: %d, s col: %d, size: %d, endl: %d, status: %d)", view->pos_x, view->pos_y, view->pos_y + view->scroll_offset, current_line->line, current_line->col_start + view->pos_x, current_line->size, current_line->endl, view->status);
     }
 
     // Update cursor position
@@ -216,6 +225,7 @@ void file_view_handle_input(FileView *view, int input)
 {
     int res = 1;
     int cursor_move = 0;
+    int modified = 0;
     int temp_pos_x = view->pos_x, temp_pos_y = view->pos_y;
 
     if (input == KEY_BACKSPACE)
@@ -253,16 +263,19 @@ void file_view_handle_input(FileView *view, int input)
         case '\n':
             res = file_data_insert_char(view->data, view->pos_y + view->scroll_offset, view->pos_x, '\n');
             cursor_move = KEY_ENTER;
+            modified = 1;
             break;
 
         case KEY_BACKSPACE:
             res = file_data_delete_char(view->data, view->pos_y + view->scroll_offset, view->pos_x - 1);
             cursor_move = KEY_BACKSPACE;
+            modified = 1;
             break;
 
         default:
             res = file_data_insert_char(view->data, view->pos_y + view->scroll_offset, view->pos_x, (char) input);
             cursor_move = KEY_RIGHT;
+            modified = 1;
             break;
     }
 
@@ -275,6 +288,11 @@ void file_view_handle_input(FileView *view, int input)
         }
 
         update_cursor_position(view, cursor_move);
+
+        if (modified)
+        {
+            view->status = FILE_VIEW_STATUS_MODIFIED;
+        }
     }
 
     // FIXME: temporary for debug
@@ -291,7 +309,7 @@ const char *file_view_get_title(FileView *view)
     return view->title;
 }
 
-const char *file_view_get_file_path(FileView *view)
+const char* file_view_get_file_path(FileView *view)
 {
     if (view == NULL)
     {
@@ -299,6 +317,16 @@ const char *file_view_get_file_path(FileView *view)
     }
 
     return view->file_path;
+}
+
+FileViewStatus file_view_get_status(FileView *view)
+{
+    if (view == NULL)
+    {
+        return FILE_VIEW_STATUS_UNINITIALIZED;
+    }
+
+    return view->status;
 }
 
 

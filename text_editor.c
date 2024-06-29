@@ -547,7 +547,7 @@ void text_editor_update_menu_options(TextEditor *editor)
     }
     else
     {
-        if (1) // FIXME: not saved
+        if (file_view_get_status(current_view) != FILE_VIEW_STATUS_SAVED)
         {
             item_opts_on(editor->menu_items[FILE_MENU_SAVE_FILE_OPTION], O_SELECTABLE);
         }

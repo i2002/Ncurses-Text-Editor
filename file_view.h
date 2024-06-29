@@ -4,6 +4,17 @@
 #include <panel.h>
 #include "file_data.h"
 
+typedef struct FileView FileView;
+typedef enum FileViewStatus FileViewStatus;
+
+enum FileViewStatus
+{
+    FILE_VIEW_STATUS_UNINITIALIZED,
+    FILE_VIEW_STATUS_NEW_FILE,
+    FILE_VIEW_STATUS_MODIFIED,
+    FILE_VIEW_STATUS_SAVED
+};
+
 struct FileView
 {
     WINDOW *win;
@@ -12,6 +23,7 @@ struct FileView
     char *title;
     char *file_path;
     FileData *data;
+    FileViewStatus status;
 
     int scroll_offset;
     int pos_x;
@@ -19,8 +31,6 @@ struct FileView
 
     // TODO: selection info
 };
-
-typedef struct FileView FileView;
 
 /**
  * @brief Create FileView structure.
@@ -100,6 +110,14 @@ const char *file_view_get_title(FileView *view);
  * @param view pointer to initialized FileView structure
  * @return const char* pointer to file path (may be NULL if file was never saved)
  */
-const char *file_view_get_file_path(FileView *view);
+const char* file_view_get_file_path(FileView *view);
+
+/**
+ * @brief Get the status of the file view
+ * 
+ * @param view pointer to initialized FileView structure
+ * @return FileViewStatus
+ */
+FileViewStatus file_view_get_status(FileView *view);
 
 #endif // FILE_VIEW_H
