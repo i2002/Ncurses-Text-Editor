@@ -146,24 +146,27 @@ int file_view_load_file(FileView *view, const char* file_path)
 
 int file_view_save_file(FileView *view, const char* file_path)
 {
+    const char *save_file_path = file_path != NULL ? file_path : view->file_path;
+
+    if (save_file_path == NULL)
+    {
+        return 1;
+    }
+
+    int ret = save_file_data(view->data, save_file_path);
+
+    if (ret != 0)
+    {
+        return ret;
+    }
+
+    // Update file path and tab title if file path changed
     if (file_path != NULL)
     {
         if (file_view_set_file_path(view, file_path) != 0)
         {
             return 1;
         }
-    }
-
-    if (view->file_path == NULL)
-    {
-        return 1;
-    }
-
-    int ret = save_file_data(view->data, view->file_path);
-
-    if (ret != 0)
-    {
-        return ret;
     }
 
     // FIXME: set state to saved

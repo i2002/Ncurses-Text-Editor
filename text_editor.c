@@ -23,8 +23,17 @@ static const char *menu_labels[MENU_ITEMS_SIZE] = {
     "Open file         ",
     "Save file         ",
     "Save file as      ",
-    "Close             ",
+    "Close file        ",
     "Quit              "
+};
+
+enum FileMenuOptions {
+    FILE_MENU_NEW_FILE_OPTION,
+    FILE_MENU_OPEN_FILE_OPTION,
+    FILE_MENU_SAVE_FILE_OPTION,
+    FILE_MENU_SAVE_FILE_AS_OPTION,
+    FILE_MENU_CLOSE_TAB_OPTION,
+    FILE_MENU_QUIT_OPTION
 };
 
 // ------------------------------ Macros ----------------------------
@@ -53,6 +62,15 @@ void text_editor_render_main_menu(TextEditor *editor);
  * @param editor pointer to initialized TextEditor instance
  */
 void text_editor_render_about_window(TextEditor *editor);
+
+/**
+ * @brief Update file menu options.
+ * 
+ * Check if options should be enabled or disabled for current editor context.
+ * 
+ * @param editor pointer to initialized TextEditor instance
+ */
+void text_editor_update_menu_options(TextEditor *editor);
 
 /**
  * @brief Execute file menu action.
@@ -308,6 +326,11 @@ int text_editor_load_file(TextEditor *editor)
 void text_editor_save_file(TextEditor *editor, int save_as)
 {
     FileView *current_view = text_editor_get_current_view(editor);
+
+    if (current_view == NULL)
+    {
+        return;
+    }
     
     if (!save_as && file_view_get_file_path(current_view) == NULL)
     {
@@ -425,7 +448,6 @@ int text_editor_handle_input(TextEditor *editor, int input)
 
             case 10:
             case KEY_ENTER:
-                hide_panel(editor->menu_panel);
                 ret = text_editor_menu_action(editor);
                 break;
 
@@ -441,6 +463,7 @@ int text_editor_handle_input(TextEditor *editor, int input)
             case KEY_F(1):
                 show_panel(editor->menu_panel);
                 top_panel(editor->menu_panel);
+                text_editor_update_menu_options(editor);
                 break;
 
             case 9:
@@ -497,6 +520,7 @@ void text_editor_render_main_menu(TextEditor *editor)
     set_menu_sub(editor->menu, derwin(editor->menu_win, MENU_HEIGHT - 2, MENU_WIDTH - 3, 1, 2));
     menu_opts_off(editor->menu, O_SHOWDESC);
     set_menu_mark(editor->menu, ">");
+    set_menu_grey(editor->menu, A_DIM);
     post_menu(editor->menu);
 }
 
@@ -509,28 +533,68 @@ void text_editor_render_about_window(TextEditor *editor)
     mvwprintw(editor->about_win, 4, 1, "Open file menu to get started.");
 }
 
+void text_editor_update_menu_options(TextEditor *editor)
+{
+    set_current_item(editor->menu, editor->menu_items[FILE_MENU_NEW_FILE_OPTION]);
+
+    FileView *current_view = text_editor_get_current_view(editor);
+
+    if (current_view == NULL)
+    {
+        item_opts_off(editor->menu_items[FILE_MENU_SAVE_FILE_OPTION], O_SELECTABLE);
+        item_opts_off(editor->menu_items[FILE_MENU_SAVE_FILE_AS_OPTION], O_SELECTABLE);
+        item_opts_off(editor->menu_items[FILE_MENU_CLOSE_TAB_OPTION], O_SELECTABLE);
+    }
+    else
+    {
+        if (1) // FIXME: not saved
+        {
+            item_opts_on(editor->menu_items[FILE_MENU_SAVE_FILE_OPTION], O_SELECTABLE);
+        }
+        else
+        {
+            item_opts_off(editor->menu_items[FILE_MENU_SAVE_FILE_OPTION], O_SELECTABLE);
+        }
+        item_opts_on(editor->menu_items[FILE_MENU_SAVE_FILE_AS_OPTION], O_SELECTABLE);
+        item_opts_on(editor->menu_items[FILE_MENU_CLOSE_TAB_OPTION], O_SELECTABLE);
+    }
+}
+
 int text_editor_menu_action(TextEditor *editor)
 {
     int ret = 0;
-    switch (item_index(current_item(editor->menu)))
+
+    ITEM *item = current_item(editor->menu);
+
+    // Disabled item
+    if (!(item_opts(item) & O_SELECTABLE))
     {
-        case 0:
+        return 0;
+    }
+
+    // Close menu
+    hide_panel(editor->menu_panel);
+
+    // Handle selected menu action
+    switch (item_index(item))
+    {
+        case FILE_MENU_NEW_FILE_OPTION:
             ret = text_editor_new_tab(editor);
             break;
 
-        case 1:
+        case FILE_MENU_OPEN_FILE_OPTION:
             ret = text_editor_load_file(editor);
             break;
 
-        case 2:
+        case FILE_MENU_SAVE_FILE_OPTION:
             text_editor_save_file(editor, 0);
             break;
 
-        case 3:
+        case FILE_MENU_SAVE_FILE_AS_OPTION:
             text_editor_save_file(editor, 1);
             break;
 
-        case 4:
+        case FILE_MENU_CLOSE_TAB_OPTION:
             ret = text_editor_close_tab(editor);
             break;
 
@@ -538,6 +602,7 @@ int text_editor_menu_action(TextEditor *editor)
             return 1;
     }
 
+    // Rerender views
     if (ret == 0)
     {
         text_editor_render(editor);
