@@ -41,6 +41,17 @@ void update_cursor_position(FileView *view, int input);
  */
 int file_view_set_file_path(FileView *view, const char* file_path);
 
+/**
+ * @brief Get file view selection range.
+ * 
+ * @param view pointer to initialized FileView structure
+ * @param sel_start_line start source line
+ * @param sel_start_col start source col
+ * @param sel_stop_line stop source line
+ * @param sel_stop_col stop source col
+ */
+void file_view_get_selection_ranges(FileView *view, int *sel_start_line, int *sel_start_col, int *sel_stop_line, int *sel_stop_col);
+
 
 // ----------------------- Public definitions -----------------------
 
@@ -178,17 +189,49 @@ void file_view_render(FileView *view)
     int height, width;
     getmaxyx(view->win, height, width);
 
+    int start_sel = 0;
+    int sel_start_line, sel_start_col, sel_stop_line, sel_stop_col;
+    file_view_get_selection_ranges(view, &sel_start_line, &sel_start_col, &sel_stop_line, &sel_stop_col);
+
     for (int i = 0; i < height; i++)
     {
         if (i + view->scroll_offset < view->data->size)
         {
             const FileLine *line = get_file_data_line(view->data, i + view->scroll_offset);
-            mvwaddnstr(view->win, i, 0, line->content, line->size);
+            int source_line = line->line;
+            int source_col = line->col_start;
+
+            wmove(view->win, i, 0);
+            for (int col = 0; col < line->size; col++)
+            {
+                if (source_line == sel_start_line && source_col + col == sel_start_col)
+                {
+                    start_sel = 1;
+                }
+
+                if (source_line == sel_stop_line && source_col + col == sel_stop_col)
+                {
+                    start_sel = 0;
+                }
+
+                int mod = start_sel ? A_STANDOUT : 0;
+                waddch(view->win, line->content[col] | mod);
+            }
+
+            if (start_sel && source_line == sel_stop_line && source_col + line->size == sel_stop_col)
+            {
+                start_sel = 0;
+            }
+
+            if (start_sel && line->size == 0)
+            {
+                waddch(view->win, ' ' | A_STANDOUT);
+            }
 
             if (!line->endl)
             {
                 wattron(view->win, COLOR_PAIR(MARKER_COLOR));
-                mvwaddch(view->win, i, width - 1, '~');
+                mvwaddch(view->win, i, width - 1, '>');
                 wattroff(view->win, COLOR_PAIR(MARKER_COLOR));
             }
         }
@@ -204,7 +247,7 @@ void file_view_render(FileView *view)
     const FileLine *current_line = get_file_data_line(view->data, view->scroll_offset + view->pos_y);
     if (current_line != NULL)
     {
-        mvwprintw(view->win, height - 1, 0, "(d x: %d, d y: %d, i: %d, s line: %d, s col: %d, size: %d, endl: %d, status: %d)", view->pos_x, view->pos_y, view->pos_y + view->scroll_offset, current_line->line, current_line->col_start + view->pos_x, current_line->size, current_line->endl, view->status);
+        mvwprintw(view->win, height - 1, 0, "(d x: %d, d y: %d, i: %d, s line: %d, s col: %d, size: %d, endl: %d, status: %d, sel_start: %d, %d; sel_stop: %d, %d)", view->pos_x, view->pos_y, view->pos_y + view->scroll_offset, current_line->line, current_line->col_start + view->pos_x, current_line->size, current_line->endl, view->status, sel_start_line, sel_start_col, sel_stop_line, sel_stop_col);
     }
 
     // Update cursor position
@@ -221,6 +264,12 @@ void file_view_handle_input(FileView *view, int input)
 
     if (input == KEY_BACKSPACE)
     {
+        if (view->sel_active)
+        {
+            view->sel_active = 0;
+            file_view_delete_selection(view);
+            return;
+        }
         const FileLine *line = get_file_data_line(view->data, view->scroll_offset + view->pos_y);
         if (line == NULL)
         {
@@ -239,6 +288,9 @@ void file_view_handle_input(FileView *view, int input)
         temp_pos_y -= view->scroll_offset;
     }
 
+
+    view->sel_active = 0;
+
     switch (input)
     {
         case KEY_UP:
@@ -250,6 +302,18 @@ void file_view_handle_input(FileView *view, int input)
             cursor_move = input;
             res = 0;
             break;
+
+        case KEY_SR:
+        case KEY_SF:
+        case KEY_SRIGHT:
+        case KEY_SLEFT:
+        case KEY_SHOME:
+        case KEY_SEND:
+            view->sel_active = 1;
+            cursor_move = input;
+            res = 0;
+            break;
+
         case KEY_ENTER:
         case '\n':
             res = file_data_insert_char(view->data, view->pos_y + view->scroll_offset, view->pos_x, '\n');
@@ -261,6 +325,11 @@ void file_view_handle_input(FileView *view, int input)
             res = file_data_delete_char(view->data, view->pos_y + view->scroll_offset, view->pos_x - 1);
             cursor_move = KEY_BACKSPACE;
             modified = 1;
+            break;
+
+        case '!':
+            res = 1;
+            file_view_delete_selection(view);
             break;
 
         default:
@@ -280,6 +349,15 @@ void file_view_handle_input(FileView *view, int input)
 
         update_cursor_position(view, cursor_move);
 
+        const FileLine *line = get_file_data_line(view->data, view->scroll_offset + view->pos_y);
+        if (!view->sel_active)
+        {
+            view->sel_start_line = line->line;
+            view->sel_start_col = view->pos_x + line->col_start;
+        }
+        view->sel_stop_line = line->line;
+        view->sel_stop_col = view->pos_x + line->col_start;
+
         if (modified)
         {
             view->status = FILE_VIEW_STATUS_MODIFIED;
@@ -288,6 +366,87 @@ void file_view_handle_input(FileView *view, int input)
 
     // FIXME: temporary for debug
     file_data_check_integrity(view->data);
+}
+
+int file_view_copy_selection(FileView *view, char **buffer, int *len)
+{
+    int sel_start_line, sel_start_col, sel_stop_line, sel_stop_col;
+    int line_cols = getmaxx(view->win) - 1;
+    file_view_get_selection_ranges(view, &sel_start_line, &sel_start_col, &sel_stop_line, &sel_stop_col);
+    int size = (sel_stop_line - sel_start_line + 1) * line_cols;
+
+    *buffer = (char*) malloc(size * sizeof(char));
+    if (*buffer == NULL)
+    {
+        return 1;
+    }
+
+    int start_sel = 0;
+    *len = 0;
+    for (int i = 0; i < view->data->size; i++)
+    {
+        const FileLine *line = get_file_data_line(view->data, i);
+        int source_line = line->line;
+        int source_col = line->col_start;
+
+        for (int col = 0; col < line->size; col++)
+        {
+            if (source_line == sel_start_line && source_col + col == sel_start_col)
+            {
+                start_sel = 1;
+            }
+
+            if (source_line == sel_stop_line && source_col + col == sel_stop_col)
+            {
+                return 0;
+            }
+
+            // Append char to selection
+            if (start_sel)
+            {
+                (*buffer)[*len] = line->content[col];
+                (*len)++;
+            }
+        }
+
+        if (start_sel && source_line == sel_stop_line && source_col + line->size == sel_stop_col)
+        {
+            return 0;
+        }
+
+        // Append new line to selection
+        if (start_sel)
+        {
+            (*buffer)[*len] = '\n';
+            (*len)++;
+        }
+    }
+
+    return 0;
+}
+
+int file_view_delete_selection(FileView *view)
+{
+    int sel_start_line, sel_start_col, sel_stop_line, sel_stop_col;
+    file_view_get_selection_ranges(view, &sel_start_line, &sel_start_col, &sel_stop_line, &sel_stop_col);
+
+    int source_line = sel_stop_line, source_col = sel_stop_col;
+    int pos_x, pos_y;
+    file_data_get_display_coords(view->data, source_line, source_col, &pos_y, &pos_x);
+    view->pos_x = pos_x;
+    view->pos_y = pos_y - view->scroll_offset;
+    update_cursor_position(view, KEY_BACKSPACE);
+
+    while(source_line != sel_start_line || source_col != sel_start_col)
+    {
+        file_view_handle_input(view, KEY_BACKSPACE);
+        file_view_render(view);
+        const FileLine *line = get_file_data_line(view->data, view->pos_y + view->scroll_offset);
+        source_line = line->line;
+        source_col = line->col_start + view->pos_x;
+    }
+
+    return 0;
 }
 
 const char *file_view_get_title(FileView *view)
@@ -344,14 +503,17 @@ void update_cursor_position(FileView *view, int input)
     switch(input)
     {
         case KEY_UP:
+        case KEY_SR:
             source_line--;
             break;
 
         case KEY_DOWN:
+        case KEY_SF:
             source_line++;
             break;
 
         case KEY_LEFT:
+        case KEY_SLEFT:
             if (source_col > 0)
             {
                 source_col--;
@@ -359,6 +521,7 @@ void update_cursor_position(FileView *view, int input)
             break;
 
         case KEY_RIGHT:
+        case KEY_SRIGHT:
             source_col++;
             break;
 
@@ -368,10 +531,12 @@ void update_cursor_position(FileView *view, int input)
             break;
 
         case KEY_HOME:
+        case KEY_SHOME:
             source_col = 0;
             break;
 
         case KEY_END:
+        case KEY_SEND:
             source_col = -1;
             break;
     }
@@ -433,4 +598,21 @@ int file_view_set_file_path(FileView *view, const char* file_path)
     free(file_path_copy);
 
     return 0;
+}
+
+void file_view_get_selection_ranges(FileView *view, int *sel_start_line, int *sel_start_col, int *sel_stop_line, int *sel_stop_col)
+{
+    *sel_start_line = view->sel_start_line;
+    *sel_start_col = view->sel_start_col;
+    *sel_stop_line = view->sel_stop_line;
+    *sel_stop_col = view->sel_stop_col;
+
+    // swap if start > stop
+    if ((*sel_stop_line < *sel_start_line) || (*sel_stop_line == *sel_start_line && *sel_stop_col < *sel_start_col))
+    {
+        *sel_start_line = view->sel_stop_line;
+        *sel_start_col = view->sel_stop_col + 1;
+        *sel_stop_line = view->sel_start_line;
+        *sel_stop_col = view->sel_start_col + 1;
+    }
 }

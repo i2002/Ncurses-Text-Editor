@@ -8,7 +8,7 @@ int main()
     // Initialize ncurses
     initscr();
     start_color();
-    cbreak();
+    raw();
     noecho();
     keypad(stdscr, TRUE);
     mousemask(BUTTON1_CLICKED, NULL);

@@ -103,9 +103,30 @@ void text_editor_render(TextEditor *editor);
  */
 int text_editor_handle_input(TextEditor *editor, int input);
 
-// int text_editor_copy_selection(TextEditor *editor, int cut);
+/**
+ * @brief Handle copy view selection to clipboard.
+ * 
+ * @param editor pointer to TextEditor instance
+ * @param cut whether the text should be also deleted from source
+ * @return int 0 for success, 1 for failure
+ */
+int text_editor_copy_selection(TextEditor *editor, int cut);
 
-// int text_editor_paste_selection(TextEditor *editor);
+/**
+ * @brief Handle paste clipboard into view.
+ * 
+ * @param editor pointer to TextEditor instance
+ * @return int 0 for success, 1 for failure
+ */
+int text_editor_paste_selection(TextEditor *editor);
+
+/**
+ * @brief Handle delete view selection.
+ * 
+ * @param editor pointer to TextEditor instance
+ * @return int 0 for success, 1 for failure
+ */
+int text_editor_delete_selection(TextEditor *editor);
 
 /**
  * @brief Get current text editor tab.

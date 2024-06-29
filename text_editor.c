@@ -91,6 +91,17 @@ void text_editor_update_menu_options(TextEditor *editor);
 int text_editor_menu_action(TextEditor *editor);
 
 /**
+ * @brief Execute top bar click action.
+ * 
+ * This either changes active tab or handles special ClickPosition actions.
+ * 
+ * @param editor pointer to initialized TextEditor structure
+ * @param action tab index or ClickPosition action
+ * @return int 
+ */
+void text_editor_click_action(TextEditor *editor, int action);
+
+/**
  * @brief Get clicked action on top bar.
  * 
  * @param editor pointer to initialized TextEditor structure
@@ -516,6 +527,7 @@ int text_editor_handle_input(TextEditor *editor, int input)
         wrefresh(editor->menu_win);
         switch (input)
         {
+            // Change menu options
             case KEY_DOWN:
                 menu_driver(editor->menu, REQ_DOWN_ITEM);
                 wrefresh(editor->menu_win);
@@ -526,13 +538,15 @@ int text_editor_handle_input(TextEditor *editor, int input)
                 wrefresh(editor->menu_win);
                 break;
 
-            case 10:
+            // Apply action
+            case 10: // \n
             case KEY_ENTER:
                 ret = text_editor_menu_action(editor);
                 break;
 
+            // Exit menu
             case KEY_F(1):
-            case 27:
+            case 27: // Escape
                 hide_panel(editor->menu_panel);
                 break;
         }
@@ -541,44 +555,24 @@ int text_editor_handle_input(TextEditor *editor, int input)
     {
         switch (input)
         {
+            // Mouse input
             case KEY_MOUSE:
-                if(getmouse(&event) == OK)
+                if(getmouse(&event) == OK && wmouse_trafo(editor->top_bar_win, &event.y, &event.x, FALSE) == TRUE)
 			    {
-                    if (wmouse_trafo(editor->top_bar_win, &event.y, &event.x, FALSE) == TRUE)
-                    {
-                        ClickPosition clicked_item = text_editor_top_bar_click(editor, event.y, event.x);
-
-                        switch(clicked_item)
-                        {
-                            case CLICK_MENU:
-                                ungetch(KEY_F(1));
-                                break;
-
-                            case CLICK_NEXT:
-                                text_editor_set_current_tab(editor, editor->current_tab + 1);
-                                break;
-                            
-                            case CLICK_PREV:
-                                text_editor_set_current_tab(editor, editor->current_tab - 1);
-                                break;
-
-                            case CLICK_OUTSIDE:
-                                break;
-                        
-                            default:
-                                text_editor_set_current_tab(editor, clicked_item);
-                                break;
-                        }
-                    }
+                    ClickPosition clicked_item = text_editor_top_bar_click(editor, event.y, event.x);
+                    text_editor_click_action(editor, clicked_item);
                 }
                 break;
+
+            // Open menu
             case KEY_F(1):
                 show_panel(editor->menu_panel);
                 top_panel(editor->menu_panel);
                 text_editor_update_menu_options(editor);
                 break;
 
-            case 9:
+            // Cycle tabs
+            case 9: // Tab
                 text_editor_set_current_tab(editor, editor->current_tab + 1);
                 break;
 
@@ -586,6 +580,24 @@ int text_editor_handle_input(TextEditor *editor, int input)
                 text_editor_set_current_tab(editor, editor->current_tab - 1);
                 break;
 
+            // Clipboard shortcuts
+            case 3: // Ctrl + C
+                ret = text_editor_copy_selection(editor, 0);
+                break;
+
+            case 22: // Ctrl + V
+                ret = text_editor_paste_selection(editor);
+                break;
+
+            case 24: // Ctrl + X
+                ret = text_editor_copy_selection(editor, 1);
+                break;
+
+            case 25: // Ctrl + Y
+                ret = text_editor_delete_selection(editor);
+                break;
+
+            // Input for file view
             default:
                 if (current_view != NULL)
                 {
@@ -599,6 +611,75 @@ int text_editor_handle_input(TextEditor *editor, int input)
     update_panels();
     doupdate();
     return ret;
+}
+
+int text_editor_copy_selection(TextEditor *editor, int cut)
+{
+    FileView *current_view = text_editor_get_current_view(editor);
+
+    if (current_view == NULL)
+    {
+        return 0;
+    }
+
+    if (editor->clipboard != NULL)
+    {
+        free(editor->clipboard);
+        editor->clipboard_length = 0;
+    }
+
+    if (file_view_copy_selection(current_view, &editor->clipboard, &editor->clipboard_length) != 0)
+    {
+        return 1;
+    }
+
+    if (cut)
+    {
+        if (file_view_delete_selection(current_view) != 0)
+        {
+            return 1;
+        }
+
+        file_view_render(current_view);
+    }
+
+    return 0;
+}
+
+int text_editor_paste_selection(TextEditor *editor)
+{
+    FileView *current_view = text_editor_get_current_view(editor);
+
+    if (current_view == NULL || editor->clipboard == NULL)
+    {
+        return 0;
+    }
+
+    for (int i = 0; i < editor->clipboard_length; i++)
+    {
+        file_view_handle_input(current_view, editor->clipboard[i]);
+    }
+
+    file_view_render(current_view);
+    return 0;
+}
+
+int text_editor_delete_selection(TextEditor *editor)
+{
+    FileView *current_view = text_editor_get_current_view(editor);
+
+    if (current_view == NULL)
+    {
+        return 0;
+    }
+    
+    if (file_view_delete_selection(current_view) != 0)
+    {
+        return 1;
+    }
+
+    file_view_render(current_view);
+    return 0;
 }
 
 FileView *text_editor_get_current_view(TextEditor *editor)
@@ -723,6 +804,31 @@ int text_editor_menu_action(TextEditor *editor)
     }
 
     return ret;
+}
+
+void text_editor_click_action(TextEditor *editor, int action)
+{
+    switch(action)
+    {
+        case CLICK_MENU:
+            ungetch(KEY_F(1));
+            break;
+
+        case CLICK_NEXT:
+            text_editor_set_current_tab(editor, editor->current_tab + 1);
+            break;
+        
+        case CLICK_PREV:
+            text_editor_set_current_tab(editor, editor->current_tab - 1);
+            break;
+
+        case CLICK_OUTSIDE:
+            break;
+    
+        default:
+            text_editor_set_current_tab(editor, action);
+            break;
+    }
 }
 
 ClickPosition text_editor_top_bar_click(TextEditor *editor, int y, int x)

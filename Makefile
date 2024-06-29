@@ -14,7 +14,7 @@ all: main
 
 # Main target
 main: main.c $(OBJS)
-	$(CC) -o $@ $^ $(LIBS)
+	$(CC) -o $@ $^ $(CFLAGS) $(LIBS)
 
 # Rule for compiling object files
 $(BUILD)/%.o: %.c %.h

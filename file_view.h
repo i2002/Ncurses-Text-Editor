@@ -29,7 +29,11 @@ struct FileView
     int pos_x;
     int pos_y;
 
-    // TODO: selection info
+    int sel_active;
+    int sel_start_line;
+    int sel_start_col;
+    int sel_stop_line;
+    int sel_stop_col;
 };
 
 /**
@@ -85,6 +89,26 @@ void file_view_render(FileView *view);
  * @param input input character / key
  */
 void file_view_handle_input(FileView *view, int input);
+
+/**
+ * @brief Copy view selection to buffer.
+ * 
+ * This function initializes the buffer and the associated length.
+ * 
+ * @param view pointer to initialized FileView structure
+ * @param buffer buffer to copy selection into
+ * @param len selection length copied into buffer
+ * @return int 
+ */
+int file_view_copy_selection(FileView *view, char **buffer, int *len);
+
+/**
+ * @brief Delete selection from view.
+ * 
+ * @param view pointer to initialized FileView structure
+ * @return int 
+ */
+int file_view_delete_selection(FileView *view);
 
 /**
  * @brief Get the title of the current file view
