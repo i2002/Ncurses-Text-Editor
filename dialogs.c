@@ -7,6 +7,8 @@
 #include <menu.h>
 #include <form.h>
 #include <panel.h>
+#include "colors.h"
+
 
 // ----------------------- Private declarations ---------------------
 
@@ -53,6 +55,7 @@ int input_dialog(PANEL *dialog_panel, const char *prompt, const char *initial_in
     }
 
     set_field_opts(fields[0], O_VISIBLE | O_PUBLIC | O_EDIT | O_ACTIVE);
+    set_field_back(fields[0], COLOR_PAIR(INTERFACE_COLOR) | A_UNDERLINE);
 
     FORM *form = new_form(fields);
     set_form_win(form, dialog_win);
@@ -92,17 +95,19 @@ int confirm_dialog(PANEL *dialog_panel, const char *prompt)
     render_dialog_window(dialog_win, prompt);
 
     ITEM *items[3];
-    items[0] = new_item("Yes", "");
-    items[1] = new_item("Cancel", "");
+    items[0] = new_item("Cancel", "");
+    items[1] = new_item("Yes", "");
     items[2] = NULL;
 
     MENU *menu = new_menu(items);
     set_menu_win(menu, dialog_win);
-    set_menu_sub(menu, derwin(dialog_win, 1, 13, 2, (getmaxx(dialog_win) - 14) / 2));
+    set_menu_sub(menu, derwin(dialog_win, 1, 15, 2, (getmaxx(dialog_win) - 16) / 2));
 
     menu_opts_off(menu, O_SHOWDESC);
     set_menu_format(menu, 1, 2);
-	set_menu_mark(menu, "");
+	set_menu_mark(menu, ">");
+    set_menu_back(menu, COLOR_PAIR(INTERFACE_COLOR));
+    set_menu_fore(menu, INTERFACE_SELECTED);
 
     post_menu(menu);
 
@@ -125,8 +130,6 @@ int confirm_dialog(PANEL *dialog_panel, const char *prompt)
         }
 
         wrefresh(dialog_win);
-        // update_panels();
-        // doupdate();
     }
 
     int choice = item_index(current_item(menu));
@@ -135,6 +138,7 @@ int confirm_dialog(PANEL *dialog_panel, const char *prompt)
     free_item(items[0]);
     free_item(items[1]);
     free_menu(menu);
+
     hide_panel(dialog_panel);
     update_panels();
     doupdate();
@@ -150,9 +154,12 @@ void alert_dialog(PANEL *dialog_panel, const char *prompt)
     update_panels();
     doupdate();
 
-    wattron(dialog_win, A_STANDOUT);
-    mvwprintw(dialog_win, 2, (getmaxx(dialog_win) - 4) / 2, " Ok ");
-    wattroff(dialog_win, A_STANDOUT);
+    int pos_x = (getmaxx(dialog_win) - 4) / 2;
+    mvwaddch(dialog_win, 2, pos_x, '>');
+    wattron(dialog_win, INTERFACE_SELECTED);
+    mvwprintw(dialog_win, 2, pos_x + 1, "Ok");
+    wattroff(dialog_win, INTERFACE_SELECTED);
+    wmove(dialog_win, 2, pos_x);
 
     char ch;
     while ((ch = wgetch(dialog_win)) != 10);
@@ -165,7 +172,7 @@ void alert_dialog(PANEL *dialog_panel, const char *prompt)
 void render_dialog_window(WINDOW *win, const char *title)
 {
     wclear(win);
-    wbkgd(win, COLOR_PAIR(4));
+    wbkgd(win, COLOR_PAIR(INTERFACE_COLOR));
     box(win, 0, 0);
     mvwprintw(win, 0, 2, " %s ", title);
 }

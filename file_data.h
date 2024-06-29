@@ -114,9 +114,6 @@ const FileLine* get_file_data_line(FileData *file_data, int index);
 /**
  * @brief Insert character at position in FileData.
  * 
- * A new line at the start of the file can be added by setting line to be -1
- * and col = 0 and ins = '\n'.
- * 
  * @param file_data pointer to initialized FileData structure
  * @param line position FileData line number
  * @param col position of insertion on the specified FileData line

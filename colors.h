@@ -1,0 +1,21 @@
+#ifndef COLORS_H
+#define COLORS_H
+
+enum Colors
+{
+    INTERFACE_COLOR = 1,
+    INTERFACE_SELECTED_COLOR,
+    INTERFACE_DISABLED_COLOR,
+    MENU_COLOR,
+    MARKER_COLOR
+};
+
+#define INTERFACE_SELECTED COLOR_PAIR(INTERFACE_SELECTED_COLOR) | A_BOLD
+#define INTERFACE_DISABLED COLOR_PAIR(INTERFACE_DISABLED_COLOR) | A_DIM
+
+/**
+ * @brief Set the up ncurses color pairs
+ */
+void setup_colors();
+
+#endif // COLORS_H

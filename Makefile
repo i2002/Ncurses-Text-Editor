@@ -4,7 +4,7 @@ LIBS = -lpanel -lmenu -lform -lncurses
 BUILD = ./build
 
 # Source files
-SRCS = file_data.c file_view.c dialogs.c text_editor.c
+SRCS = file_data.c file_view.c dialogs.c colors.c text_editor.c
 
 # Object files in the build directory
 OBJS = $(SRCS:%.c=$(BUILD)/%.o)

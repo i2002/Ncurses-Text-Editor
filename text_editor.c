@@ -4,6 +4,7 @@
 #include <string.h>
 #include <ncurses.h>
 #include "dialogs.h"
+#include "colors.h"
 
 // -------------------------- Configuration -------------------------
 
@@ -266,6 +267,15 @@ int text_editor_close_tab(TextEditor *editor)
     }
 
     FileView *current_view = text_editor_get_current_view(editor);
+    FileViewStatus status = file_view_get_status(current_view);
+    if (status == FILE_VIEW_STATUS_NEW_FILE || status == FILE_VIEW_STATUS_MODIFIED)
+    {
+        if (confirm_dialog(editor->dialog_panel, "Close file without saving changes?") == 0)
+        {
+            return 0;
+        }
+    }
+
     free_file_view(current_view);
 
     // Shift remaining tabs
@@ -301,23 +311,26 @@ int text_editor_close_tab(TextEditor *editor)
 
 int text_editor_load_file(TextEditor *editor)
 {
+    char buffer[PATH_INPUT_BUFFER_LEN];
+    if (input_dialog(editor->dialog_panel, "Enter file path", NULL, buffer, PATH_INPUT_BUFFER_LEN) == 0)
+    {
+        // User canceled file path input
+        return 0;
+    }
+
     if (text_editor_new_tab(editor) != 0)
     {
         return 1;
     }
 
-
-    char buffer[PATH_INPUT_BUFFER_LEN];
-    if (input_dialog(editor->dialog_panel, "Enter file path", NULL, buffer, PATH_INPUT_BUFFER_LEN) == 0)
-    {
-        // User canceled file path input
-        return text_editor_close_tab(editor);
-    }
-
     if (file_view_load_file(editor->tabs[editor->current_tab], buffer) != 0)
     {
+        if (text_editor_close_tab(editor) != 0)
+        {
+            return 1;
+        }
+
         alert_dialog(editor->dialog_panel, "Error while loading file");
-        return text_editor_close_tab(editor);
     }
 
     return 0;
@@ -368,12 +381,12 @@ void text_editor_render(TextEditor *editor)
     int width = getmaxx(win);
 
     werase(win);
-    wbkgd(win, COLOR_PAIR(4));
+    wbkgd(win, COLOR_PAIR(INTERFACE_COLOR));
 
     // File menu
-    wattron(win, COLOR_PAIR(5));
+    wattron(win, COLOR_PAIR(MENU_COLOR));
     mvwaddstr(win, 0, 0, " File (F1) ");
-    wattroff(win, COLOR_PAIR(5));
+    wattroff(win, COLOR_PAIR(MENU_COLOR));
     
     // Compute start position
     pos = menu_offset + 1;
@@ -452,6 +465,7 @@ int text_editor_handle_input(TextEditor *editor, int input)
                 break;
 
             case KEY_F(1):
+            case 27:
                 hide_panel(editor->menu_panel);
                 break;
         }
@@ -520,7 +534,9 @@ void text_editor_render_main_menu(TextEditor *editor)
     set_menu_sub(editor->menu, derwin(editor->menu_win, MENU_HEIGHT - 2, MENU_WIDTH - 3, 1, 2));
     menu_opts_off(editor->menu, O_SHOWDESC);
     set_menu_mark(editor->menu, ">");
-    set_menu_grey(editor->menu, A_DIM);
+    set_menu_back(editor->menu, COLOR_PAIR(INTERFACE_COLOR));
+    set_menu_fore(editor->menu, INTERFACE_SELECTED);
+    set_menu_grey(editor->menu, INTERFACE_DISABLED);
     post_menu(editor->menu);
 }
 

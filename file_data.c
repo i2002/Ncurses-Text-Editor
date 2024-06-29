@@ -236,12 +236,7 @@ const FileLine* get_file_data_line(FileData *file_data, int index)
 
 int file_data_insert_char(FileData *file_data, int line, int col, char ins)
 {
-    if (file_data == NULL || line < -1 || line >= file_data->size || col < 0)
-    {
-        return 1;
-    }
-
-    if (line == -1 && (ins != '\n' || col != 0))
+    if (file_data == NULL || line < 0 || line >= file_data->size || col < 0)
     {
         return 1;
     }
@@ -251,9 +246,8 @@ int file_data_insert_char(FileData *file_data, int line, int col, char ins)
         return 1;
     }
 
-    FileNode *node = line != -1 ? find_node(file_data, line) : NULL;
-    FileLine *data = node != NULL ? &(node->data) : NULL;
-
+    FileNode *node = find_node(file_data, line);
+    FileLine *data = &(node->data);
 
     // Edge case for inserting at the end of a source file line
     int max_col = data->endl ? data->size : data->size - 1;
@@ -307,22 +301,12 @@ int file_data_insert_char(FileData *file_data, int line, int col, char ins)
     }
     else
     {
-        FileNode *new_node = NULL;
+        // Pointer to data to be copied
+        int len = data->size - col;
+        char *buffer = data->content + col;
 
-        if (data != NULL)
-        {
-            // Pointer to data to be copied
-            int len = data->size - col;
-            char *buffer = data->content + col;
-
-            // Insert new line
-            new_node = insert_node(file_data, node, data->line + 1, 0, data->endl, buffer, len);
-        }
-        else
-        {
-            new_node = insert_node(file_data, node, 0, 0, data->endl, NULL, 0);
-        }
-        
+        // Insert new line
+        FileNode *new_node = insert_node(file_data, node, data->line + 1, 0, data->endl, buffer, len);
         if (new_node == NULL)
         {
             return 1;

@@ -1,4 +1,7 @@
 #include "text_editor.h"
+#include "colors.h"
+
+#include <stdlib.h>
 
 int main()
 {
@@ -8,22 +11,21 @@ int main()
     cbreak();
     noecho();
     keypad(stdscr, TRUE);
+    ESCDELAY = 10;
 
     // Initialize colors
-    init_pair(1, COLOR_RED, COLOR_BLACK);
-    init_pair(2, COLOR_GREEN, COLOR_BLACK);
-    init_pair(3, COLOR_BLUE, COLOR_BLACK);
-    init_pair(4, COLOR_BLACK, COLOR_WHITE);
-    init_pair(5, COLOR_WHITE, COLOR_BLUE);
+    setup_colors();
 
+    // Initialized text editor
     TextEditor *editor = create_text_editor();
 
     if (editor == NULL)
     {
         endwin();
-        return 1;
+        exit(EXIT_FAILURE);
     }
 
+    // App runtime
     int done = 0;
     while (!done)
     {
@@ -31,7 +33,9 @@ int main()
         done = text_editor_handle_input(editor, ch);
     }
 
+    // Free resources
     free_text_editor(editor);
     endwin();
-    return 0;
+
+    return EXIT_SUCCESS;
 }

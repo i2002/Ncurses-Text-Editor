@@ -54,16 +54,6 @@ FileView* create_file_view(int height, int width, int offset_y, int offset_x);
 void free_file_view(FileView *view);
 
 /**
- * @brief Initialize new file.
- * 
- * This creates a new blank line in the file.
- * 
- * @param view 
- * @return int 
- */
-int file_view_new_file(FileView *view);
-
-/**
  * @brief Load contents of file into data.
  * 
  * @param view pointer to initialized FileView structure

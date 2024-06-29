@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <libgen.h>
+#include "colors.h"
 
 
 // -------------------------- Configuration -------------------------
@@ -69,6 +70,7 @@ FileView* create_file_view(int height, int width, int offset_y, int offset_x)
     view->panel = new_panel(view->win);
     ABORT_CREATE(view->panel == NULL, view);
     
+    view->status = FILE_VIEW_STATUS_NEW_FILE;
     return view;
 }
 
@@ -108,18 +110,6 @@ void free_file_view(FileView *view)
     free(view);
 }
 
-int file_view_new_file(FileView *view)
-{
-    // Insert the first line into the file
-    if (file_data_insert_char(view->data, -1, 0, '\n') != 0)
-    {
-        return 1;
-    }
-
-    view->status = FILE_VIEW_STATUS_NEW_FILE;
-    return 0;
-}
-
 int file_view_load_file(FileView *view, const char* file_path)
 {
     // Get window dimensions
@@ -127,6 +117,7 @@ int file_view_load_file(FileView *view, const char* file_path)
 
     // Recreate file data structure
     create_file_data(width - 1, view->data);
+    view->status = FILE_VIEW_STATUS_UNINITIALIZED;
 
     // Try to load file into data structure
     int res = load_file_data(view->data, file_path);
@@ -196,16 +187,16 @@ void file_view_render(FileView *view)
 
             if (!line->endl)
             {
-                wattron(view->win, COLOR_PAIR(3));
+                wattron(view->win, COLOR_PAIR(MARKER_COLOR));
                 mvwaddch(view->win, i, width - 1, '~');
-                wattroff(view->win, COLOR_PAIR(3));
+                wattroff(view->win, COLOR_PAIR(MARKER_COLOR));
             }
         }
         else
         {
-            wattron(view->win, COLOR_PAIR(3));
+            wattron(view->win, COLOR_PAIR(MARKER_COLOR));
             mvwaddch(view->win, i, 0, '~');
-            wattroff(view->win, COLOR_PAIR(3));
+            wattroff(view->win, COLOR_PAIR(MARKER_COLOR));
         }
         wclrtoeol(view->win);
     }
