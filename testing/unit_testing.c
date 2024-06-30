@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
-#include "file_data.h"
+#include "../src/file_data.h"
 
 void print_file_data(FileData *file_data);
 

@@ -1,3 +1,23 @@
+/**
+ * ------------- Ncurses Text Editor --------------
+ * Proiect Sisteme de operare, anul 3, semestrul 2
+ * - Student: Butufei Tudor-David
+ * - Grupa 361
+ * 
+ * Comments throughout the project are in english in order to perserve consistency.
+ * 
+ * Build instructions:
+ * - make
+ * - ./main
+ * - make clean
+ * 
+ * Application components:
+ * - FileData: represents the file as a linked list of display lines
+ * - FileView: handles the view of a file tab (rendering and file input)
+ * - TextEditor: renders the whole application and manages file tabs and application menu
+ * - Dialogs: utilities to display dialogs (text input, confirm and alert)
+ * - Colors: utilities related to terminal colors
+ */
 #include "text_editor.h"
 #include "colors.h"
 
