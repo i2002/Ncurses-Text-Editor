@@ -8,6 +8,8 @@
 
 // -------------------------- Configuration -------------------------
 
+#define STATUS_BAR_HEIGHT 1
+
 const char default_title[] = "Untitled";
 
 
@@ -254,7 +256,42 @@ void file_view_render(FileView *view)
     const FileLine *current_line = get_file_data_line(view->data, view->scroll_offset + view->pos_y);
     if (current_line != NULL)
     {
-        mvwprintw(view->win, height - 1, 0, "(d x: %d, d y: %d, i: %d, s line: %d, s col: %d, size: %d, endl: %d, status: %d, sel_start: %d, %d; sel_stop: %d, %d)", view->pos_x, view->pos_y, view->pos_y + view->scroll_offset, current_line->line, current_line->col_start + view->pos_x, current_line->size, current_line->endl, view->status, sel_start_line, sel_start_col, sel_stop_line, sel_stop_col);
+        // mvwprintw(view->win, height - 1, 0, "(d x: %d, d y: %d, i: %d, s line: %d, s col: %d, size: %d, endl: %d, status: %d, sel_start: %d, %d; sel_stop: %d, %d)", view->pos_x, view->pos_y, view->pos_y + view->scroll_offset, current_line->line, current_line->col_start + view->pos_x, current_line->size, current_line->endl, view->status, sel_start_line, sel_start_col, sel_stop_line, sel_stop_col);
+        char *message;
+        switch (view->status)
+        {
+            case FILE_VIEW_STATUS_NEW_FILE:
+            case FILE_VIEW_STATUS_MODIFIED:
+                message = "Modified";
+                break;
+
+            case FILE_VIEW_STATUS_SAVED:
+                message = "Saved";
+                break;
+
+            default:
+                message = "";
+                break;
+        }
+
+        wattron(view->win, A_STANDOUT);
+
+        // Set status bar background
+        wmove(view->win, height - 1, 0);
+        for (int i = 0; i < width; i++)
+        {
+            waddch(view->win, ' ');
+        }
+    
+        // Render status bar
+        wmove(view->win, height - 1, 0);
+        wprintw(view->win, " %s ", message);
+        waddch(view->win, ACS_VLINE);
+        wprintw(view->win, " Line: %d ", current_line->line);
+        waddch(view->win, ACS_VLINE);
+        wprintw(view->win, " Col: %d", current_line->col_start + view->pos_x);
+
+        wattroff(view->win, A_STANDOUT);
     }
 
     // Update cursor position
@@ -571,9 +608,9 @@ void update_cursor_position(FileView *view, int input)
         view->pos_y = 1;
     }
 
-    if (view->pos_y >= height - 2) // FIXME: status bar output
+    if (view->pos_y >= height - STATUS_BAR_HEIGHT - 1)
     {
-        view->scroll_offset += view->pos_y - height + 3;
+        view->scroll_offset += view->pos_y - (height - STATUS_BAR_HEIGHT - 2);
         view->pos_y = height - 3;
     }
 }
