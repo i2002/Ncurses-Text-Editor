@@ -10,16 +10,122 @@
 
 // ----------------------------- Private declarations -----------------------------
 
+/**
+ * @brief Insert new FileNode to FileData structure.
+ * 
+ * The newly inserted node is a succesor to the node given as parameter (NULL for the start node).
+ * The node data is initialized with provided values.
+ * If provided, the data from content buffer is copied to the data of the created node.
+ * 
+ * By default any new node is marked as end of line. If the previous node is on the same source file
+ * line as the inserted node, the previous node will have its end of line flag removed.
+ * 
+ * @param file_data FileData structure in which the node should be added
+ * @param node the node after which this new node should be inserted (NULL for the first node)
+ * @param line the source file line number of the node data
+ * @param col_start the index of the start character on the source file line
+ * @param endl flag if the current display line is the last in the source file line
+ * @param content_buffer buffer to copy line content (NULL if no copy is wanted)
+ * @param len the length of the content buffer (should be 0 if content_buffer is NULL,
+ *            should not exceed number of display columns configured in FileData structure)
+ * @return FileNode* pointer to the new created node or NULL on error
+ */
 static FileNode* insert_node(FileData *file_data, FileNode *node, int line, int col_start, int endl, char *content_buffer, int len);
+
+/**
+ * @brief Delete node from FileData structure.
+ * 
+ * @param file_data pointer to FileData structure
+ * @param node pointer to the node to be deleted
+ */
 static void delete_node(FileData *file_data, FileNode *node);
+
+/**
+ * @brief Find linkded list node by index.
+ * 
+ * @param file_data pointer to FileData structure
+ * @param index node index
+ * @return FileNode* pointer to found node or NULL if not found or invalid index
+ */
 static FileNode* find_node(const FileData *file_data, int index);
+
+/**
+ * @brief Shift contents of display lines to perserve structure.
+ * 
+ * Each source file line can be represented by multiple display lines.
+ * Each display line corresponding to a source file line is completed,
+ * with the exception of the last line which may have arbitrary length.
+ * 
+ * This function recursivelly normalizes content following an incomplete line.
+ * 
+ * If a line has been completely emptied, it will be removed.
+ * 
+ * @param file_data pointer to FileData structure
+ * @param node node with line to be normalized
+ * @return Node* the first node of the next source line
+ */
 static FileNode* normalize_line(FileData *file_data, FileNode *node);
+
+/**
+ * @brief Free node inner data structure.
+ * 
+ * @param node pointer to node with data to be freed
+ */
 static void free_node_data(FileNode *node);
-static void write_line(FileLine *line, char *buffer, int len);
+
+/**
+ * @brief Shift characters in buffer.
+ * 
+ * The caracter on position start is removed and an empty space is being made on position stop.
+ * The other characters are shifted:
+ * - to the left, if start < stop 
+ * - to the right, if start > stop
+ * The removed character is returned
+ * 
+ * @param buffer character buffer where the shifting occurs (should have at least length max(start, stop) + 1)
+ * @param start the start index of the shifting (the character on this position will be removed)
+ * @param stop the stop index of the shifting (an empty space will be created on this position)
+ * @return char 
+ */
 static char shift_chars(char *buffer, int start, int stop);
+
+/**
+ * @brief Copy buffer to FileLine.
+ * 
+ * This function updates the inner structure of the FileLine (the size of the line),
+ * and ensures proper null string termination.
+ * 
+ * The length should be less than the line size defined in FileData.
+ * 
+ * @param line pointer to target FileLine structure
+ * @param buffer pointer to source character buffer
+ * @param len number of chars to be copied from buffer
+ */
+static void write_line(FileLine *line, char *buffer, int len);
+
+// /**
+//  * @brief Update the col start of display lines starting from node
+//  * 
+//  * @param start the start node
+//  * @param value the value to be added to col_start
+//  */
 // static void update_col_start(FileNode *start, int value);
 static void update_line(FileNode *start, int value);
+
+/**
+ * @brief Update the line number of display lines starting from node.
+ * 
+ * @param start the start node
+ * @param value the value to be added to line
+ */
 static char fget_next_char(FILE *f, int *tab_count);
+
+/**
+ * @brief Check if input character is valid for display.
+ * 
+ * @param c character
+ * @return int 0 if false, 1 if true
+ */
 static int valid_character(int c);
 
 
@@ -547,26 +653,6 @@ int file_data_get_display_coords(FileData *file_data, int source_line, int sourc
 
 // ------------------------- Private functions definitions -------------------------
 
-/**
- * @brief Insert new FileNode to FileData structure.
- * 
- * The newly inserted node is a succesor to the node given as parameter (NULL for the start node).
- * The node data is initialized with provided values.
- * If provided, the data from content buffer is copied to the data of the created node.
- * 
- * By default any new node is marked as end of line. If the previous node is on the same source file
- * line as the inserted node, the previous node will have its end of line flag removed.
- * 
- * @param file_data FileData structure in which the node should be added
- * @param node the node after which this new node should be inserted (NULL for the first node)
- * @param line the source file line number of the node data
- * @param col_start the index of the start character on the source file line
- * @param endl flag if the current display line is the last in the source file line
- * @param content_buffer buffer to copy line content (NULL if no copy is wanted)
- * @param len the length of the content buffer (should be 0 if content_buffer is NULL,
- *            should not exceed number of display columns configured in FileData structure)
- * @return FileNode* pointer to the new created node or NULL on error
- */
 static FileNode* insert_node(FileData *file_data, FileNode *node, int line, int col_start, int endl, char *content_buffer, int len)
 {
     if (file_data == NULL || (content_buffer == NULL && len != 0))
@@ -628,12 +714,6 @@ static FileNode* insert_node(FileData *file_data, FileNode *node, int line, int 
     return new_node;
 }
 
-/**
- * @brief Delete node from FileData structure.
- * 
- * @param file_data pointer to FileData structure
- * @param node pointer to the node to be deleted
- */
 static void delete_node(FileData *file_data, FileNode *node)
 {
     if (node == NULL || file_data == NULL)
@@ -732,21 +812,6 @@ static FileNode* find_node(const FileData *file_data, int index)
     return node;
 }
 
-/**
- * @brief Shift contents of display lines to perserve structure.
- * 
- * Each source file line can be represented by multiple display lines.
- * Each display line corresponding to a source file line is completed,
- * with the exception of the last line which may have arbitrary length.
- * 
- * This function recursivelly normalizes content following an incomplete line.
- * 
- * If a line has been completely emptied, it will be removed.
- * 
- * @param file_data pointer to FileData structure
- * @param node node with line to be normalized
- * @return Node* the first node of the next source line
- */
 static FileNode* normalize_line(FileData *file_data, FileNode *node)
 {
     // Stop conditions
@@ -814,11 +879,6 @@ static FileNode* normalize_line(FileData *file_data, FileNode *node)
     return normalize_line(file_data, nextNode);
 }
 
-/**
- * @brief Free node inner data structure.
- * 
- * @param node pointer to node with data to be freed
- */
 static void free_node_data(FileNode *node)
 {
     free(node->data.content);
@@ -828,20 +888,6 @@ static void free_node_data(FileNode *node)
     node->data.col_start = 0;
 }
 
-/**
- * @brief Shift characters in buffer.
- * 
- * The caracter on position start is removed and an empty space is being made on position stop.
- * The other characters are shifted:
- * - to the left, if start < stop 
- * - to the right, if start > stop
- * The removed character is returned
- * 
- * @param buffer character buffer where the shifting occurs (should have at least length max(start, stop) + 1)
- * @param start the start index of the shifting (the character on this position will be removed)
- * @param stop the stop index of the shifting (an empty space will be created on this position)
- * @return char 
- */
 static char shift_chars(char *buffer, int start, int stop)
 {
     char overflow = buffer[start];
@@ -856,18 +902,6 @@ static char shift_chars(char *buffer, int start, int stop)
     return overflow;
 }
 
-/**
- * @brief Copy buffer to FileLine.
- * 
- * This function updates the inner structure of the FileLine (the size of the line),
- * and ensures proper null string termination.
- * 
- * The length should be less than the line size defined in FileData.
- * 
- * @param line pointer to target FileLine structure
- * @param buffer pointer to source character buffer
- * @param len number of chars to be copied from buffer
- */
 static void write_line(FileLine *line, char *buffer, int len)
 {
     if (line == NULL || (buffer == NULL && len != 0) || len < 0)
@@ -884,12 +918,6 @@ static void write_line(FileLine *line, char *buffer, int len)
     line->size = len;
 }
 
-// /**
-//  * @brief Update the col start of display lines starting from node
-//  * 
-//  * @param start the start node
-//  * @param value the value to be added to col_start
-//  */
 // static void update_col_start(FileNode *start, int value)
 // {
 //     FileNode *c = start;
@@ -901,12 +929,6 @@ static void write_line(FileLine *line, char *buffer, int len)
 //     }
 // }
 
-/**
- * @brief Update the line number of display lines starting from node.
- * 
- * @param start the start node
- * @param value the value to be added to line
- */
 static void update_line(FileNode *start, int value)
 {
     FileNode *c = start;
