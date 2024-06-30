@@ -4,6 +4,11 @@
 #include <panel.h>
 #include "file_data.h"
 
+#define E_SUCCESS         0
+#define E_INTERNAL_ERROR -1
+#define E_IO_ERROR       -2
+#define E_INVALID_ARGS   -3
+
 typedef struct FileView FileView;
 typedef enum FileViewStatus FileViewStatus;
 
@@ -88,7 +93,7 @@ void file_view_render(FileView *view);
  * @param view pointer to initialized FileView structure
  * @param input input character / key
  */
-void file_view_handle_input(FileView *view, int input);
+int file_view_handle_input(FileView *view, int input);
 
 /**
  * @brief Copy view selection to buffer.

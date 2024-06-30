@@ -29,7 +29,7 @@ int create_file_data(int cols, FileData *file_data)
 {
     if (file_data == NULL || cols < 1)
     {
-        return 1;
+        return E_INVALID_ARGS;
     }
 
     file_data->display_cols = cols;
@@ -40,7 +40,7 @@ int create_file_data(int cols, FileData *file_data)
     file_data->current_index = -1;
 
     insert_node(file_data, NULL, 0, 0, 1, NULL, 0);
-    return 0;
+    return E_SUCCESS;
 }
 
 void free_file_data(FileData *file_data)
@@ -67,7 +67,7 @@ int load_file_data(FileData *file_data, const char *file_name)
 {
     if (file_data == NULL)
     {
-        return 1;
+        return E_INVALID_ARGS;
     }
 
     free_file_data(file_data);
@@ -75,15 +75,14 @@ int load_file_data(FileData *file_data, const char *file_name)
     FILE *fin = fopen(file_name, "r");
     if (fin == NULL)
     {
-        perror("Unable to open file"); // FIXME: file opening error handling
-        return 1;
+        return E_IO_ERROR;
     }
 
     char *buffer = (char*) malloc(file_data->display_cols * sizeof(char));
     if (buffer == NULL)
     {
         fclose(fin);
-        return 1;
+        return E_INTERNAL_ERROR;
     }
 
     int buffer_index = 0;
@@ -115,7 +114,7 @@ int load_file_data(FileData *file_data, const char *file_name)
             {
                 free(buffer);
                 fclose(fin);
-                return 1;
+                return E_INTERNAL_ERROR;
             }
 
             // Reset buffer index and update column start
@@ -147,26 +146,29 @@ int load_file_data(FileData *file_data, const char *file_name)
         {
             free(buffer);
             fclose(fin);
-            return 1;
+            return E_INTERNAL_ERROR;
         }
     }
 
     free(buffer);
     fclose(fin);
-    return 0;
+    return E_SUCCESS;
 }
 
 int save_file_data(FileData *file_data, const char* file_path)
 {
+    if (file_data == NULL || file_path == NULL)
+    {
+        return E_INVALID_ARGS;
+    }
+
     FILE *fout = fopen(file_path, "w");
     if (fout == NULL)
     {
-        perror("Unable to open file"); // FIXME: file opening error handling
-        return 1;
+        return E_IO_ERROR;
     }
 
     FileNode *c = file_data->start;
-
     while(c != NULL)
     {
         for (int i = 0; i < c->data.size; i++)
@@ -183,7 +185,7 @@ int save_file_data(FileData *file_data, const char* file_path)
     }
 
     fclose(fout);
-    return 0;
+    return E_SUCCESS;
 }
 
 // int resize_file_data_col(FileData *file_data, int cols)
@@ -202,19 +204,19 @@ int set_file_data_line(FileData *file_data, int index)
 {
     if (file_data == NULL || index < 0 || index >= file_data->size)
     {
-        return 1;
+        return E_INVALID_ARGS;
     }
 
     FileNode* new_current = find_node(file_data, index);
 
     if (new_current == NULL)
     {
-        return 1;
+        return E_INTERNAL_ERROR;
     }
 
     file_data->current = new_current;
     file_data->current_index = index;
-    return 0;
+    return E_SUCCESS;
 }
 
 const FileLine* get_file_data_line(FileData *file_data, int index)
@@ -238,12 +240,12 @@ int file_data_insert_char(FileData *file_data, int line, int col, char ins)
 {
     if (file_data == NULL || line < 0 || line >= file_data->size || col < 0)
     {
-        return 1;
+        return E_INVALID_ARGS;
     }
 
     if (!valid_character(ins))
     {
-        return 1;
+        return E_INVALID_CHAR;
     }
 
     FileNode *node = find_node(file_data, line);
@@ -253,7 +255,7 @@ int file_data_insert_char(FileData *file_data, int line, int col, char ins)
     int max_col = data->endl ? data->size : data->size - 1;
     if (col > max_col)
     {
-        return 1;
+        return E_INVALID_ARGS;
     }
 
     if (ins != '\n')
@@ -279,7 +281,7 @@ int file_data_insert_char(FileData *file_data, int line, int col, char ins)
 
                 if (new_node == NULL)
                 {
-                    return 1;
+                    return E_INTERNAL_ERROR;
                 }
 
                 // Previous display line is no longer the last
@@ -287,11 +289,9 @@ int file_data_insert_char(FileData *file_data, int line, int col, char ins)
             }
 
             // Insert overflow character on the next line
-            int ret = file_data_insert_char(file_data, line + 1, 0, overflow_char);
-
-            if (ret == 1)
+            if (file_data_insert_char(file_data, line + 1, 0, overflow_char) < 0)
             {
-                return 1;
+                return E_INTERNAL_ERROR;
             }
         }
         else
@@ -309,7 +309,7 @@ int file_data_insert_char(FileData *file_data, int line, int col, char ins)
         FileNode *new_node = insert_node(file_data, node, data->line + 1, 0, data->endl, buffer, len);
         if (new_node == NULL)
         {
-            return 1;
+            return E_INTERNAL_ERROR;
         }
 
         // Shift subsequent lines
@@ -327,7 +327,7 @@ int file_data_insert_char(FileData *file_data, int line, int col, char ins)
         (void) normalize_line(file_data, new_node);
     }
 
-    return 0;
+    return E_SUCCESS;
 }
 
 int file_data_delete_char(FileData *file_data, int line, int col)
@@ -336,7 +336,7 @@ int file_data_delete_char(FileData *file_data, int line, int col)
 
     if (node == NULL || col >= node->data.size || col < -1)
     {
-        return 1;
+        return E_INVALID_ARGS;
     }
 
     if (col == -1)
@@ -349,7 +349,7 @@ int file_data_delete_char(FileData *file_data, int line, int col)
                 update_line(node, -1);
                 node->prev->data.endl = 0;
                 (void) normalize_line(file_data, node->prev);
-                return 0;
+                return E_SUCCESS;
             }
             else
             {
@@ -358,7 +358,7 @@ int file_data_delete_char(FileData *file_data, int line, int col)
             }
         }
 
-        return 1;
+        return E_INVALID_CHAR;
     }
 
     // Delete character on line
@@ -381,7 +381,7 @@ int file_data_delete_char(FileData *file_data, int line, int col)
         }
     }
 
-    return 0;
+    return E_SUCCESS;
 }
 
 void file_data_check_integrity(FileData *file_data)
@@ -449,7 +449,7 @@ int file_data_get_display_coords(FileData *file_data, int source_line, int sourc
 {
     if (file_data == NULL || display_line == NULL || display_col == NULL)
     {
-        return 1;
+        return E_INVALID_ARGS;
     }
 
     FileNode* node = file_data->current != NULL ? file_data->current : file_data->start;
@@ -457,7 +457,7 @@ int file_data_get_display_coords(FileData *file_data, int source_line, int sourc
 
     if (node == NULL)
     {
-        return 1;
+        return E_INVALID_ARGS;
     }
 
     // Set iteration direction
@@ -494,7 +494,7 @@ int file_data_get_display_coords(FileData *file_data, int source_line, int sourc
             {
                 *display_line = i;
                 *display_col = (source_col == -1) ? node->data.size : source_col - node->data.col_start;
-                return 0;
+                return E_SUCCESS;
             }
         }
 
@@ -503,7 +503,7 @@ int file_data_get_display_coords(FileData *file_data, int source_line, int sourc
         node = (dir == 1) ? node->next : node->prev;
     }
 
-    return 1;
+    return E_INVALID_ARGS;
 }
 
 

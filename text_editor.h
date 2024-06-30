@@ -7,6 +7,9 @@
 
 #define MENU_ITEMS_SIZE 6
 
+#define E_SUCCESS         0
+#define E_INTERNAL_ERROR -1
+
 struct TextEditor
 {
     FileView **tabs;
@@ -51,7 +54,7 @@ void free_text_editor(TextEditor *editor);
  * @brief Create new tab in text editor
  * 
  * @param editor pointer to TextEditor instance
- * @return int 0 for success, 1 for failure
+ * @return int 0 for success, < 0 for failure
  */
 int text_editor_new_tab(TextEditor *editor);
 
@@ -59,7 +62,7 @@ int text_editor_new_tab(TextEditor *editor);
  * @brief Close current text editor tab.
  * 
  * @param editor pointer to TextEditor instance
- * @return int 0 for success, 1 for failure
+ * @return int 0 for success, < 0 for failure
  */
 int text_editor_close_tab(TextEditor *editor);
 
@@ -67,7 +70,7 @@ int text_editor_close_tab(TextEditor *editor);
  * @brief Load file into text editor.
  * 
  * @param editor pointer to TextEditor instance
- * @return int 0 for success, 1 for failure
+ * @return int 0 for success, < 0 for failure
  */
 int text_editor_load_file(TextEditor *editor);
 
@@ -76,8 +79,9 @@ int text_editor_load_file(TextEditor *editor);
  * 
  * @param editor pointer to TextEditor instance
  * @param save_as whether to ask for a new file location
+ * @return int 0 for succes, < 0 for failure
  */
-void text_editor_save_file(TextEditor *editor, int save_as);
+int text_editor_save_file(TextEditor *editor, int save_as);
 
 /**
  * @brief Set editor current tab.
@@ -99,7 +103,7 @@ void text_editor_render(TextEditor *editor);
  * 
  * @param editor pointer to TextEditor instance
  * @param input keyboard input
- * @return int 0 for success, 1 for failure
+ * @return int 0 for success, < 0 for failure
  */
 int text_editor_handle_input(TextEditor *editor, int input);
 
@@ -108,7 +112,7 @@ int text_editor_handle_input(TextEditor *editor, int input);
  * 
  * @param editor pointer to TextEditor instance
  * @param cut whether the text should be also deleted from source
- * @return int 0 for success, 1 for failure
+ * @return int 0 for success, < 0 for failure
  */
 int text_editor_copy_selection(TextEditor *editor, int cut);
 
@@ -116,7 +120,7 @@ int text_editor_copy_selection(TextEditor *editor, int cut);
  * @brief Handle paste clipboard into view.
  * 
  * @param editor pointer to TextEditor instance
- * @return int 0 for success, 1 for failure
+ * @return int 0 for success, < 0 for failure
  */
 int text_editor_paste_selection(TextEditor *editor);
 
@@ -124,7 +128,7 @@ int text_editor_paste_selection(TextEditor *editor);
  * @brief Handle delete view selection.
  * 
  * @param editor pointer to TextEditor instance
- * @return int 0 for success, 1 for failure
+ * @return int 0 for success, < 0 for failure
  */
 int text_editor_delete_selection(TextEditor *editor);
 

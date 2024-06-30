@@ -27,16 +27,22 @@ int main()
     }
 
     // App runtime
-    int done = 0;
-    while (!done)
+    int ret = 0;
+    while (!ret)
     {
         int ch = getch();
-        done = text_editor_handle_input(editor, ch);
+        ret = text_editor_handle_input(editor, ch);
     }
 
     // Free resources
     free_text_editor(editor);
     endwin();
+
+    if (ret < 0)
+    {
+        fprintf(stderr, "Text Editor: internal error");
+        exit(EXIT_FAILURE);
+    }
 
     return EXIT_SUCCESS;
 }

@@ -133,7 +133,7 @@ int file_view_load_file(FileView *view, const char* file_path)
     // Try to load file into data structure
     int res = load_file_data(view->data, file_path);
 
-    if (res != 0)
+    if (res < 0)
     {
         return res;
     }
@@ -141,7 +141,7 @@ int file_view_load_file(FileView *view, const char* file_path)
     // Update tab name and file path
     if (file_view_set_file_path(view, file_path) != 0)
     {
-        return 1;
+        return E_INTERNAL_ERROR;
     }
 
     // Reset positions
@@ -152,7 +152,7 @@ int file_view_load_file(FileView *view, const char* file_path)
     // Update status
     view->status = FILE_VIEW_STATUS_SAVED;
 
-    return 0;
+    return E_SUCCESS;
 }
 
 int file_view_save_file(FileView *view, const char* file_path)
@@ -161,12 +161,12 @@ int file_view_save_file(FileView *view, const char* file_path)
 
     if (save_file_path == NULL)
     {
-        return 1;
+        return E_INTERNAL_ERROR;
     }
 
     int ret = save_file_data(view->data, save_file_path);
 
-    if (ret != 0)
+    if (ret < 0)
     {
         return ret;
     }
@@ -176,12 +176,12 @@ int file_view_save_file(FileView *view, const char* file_path)
     {
         if (file_view_set_file_path(view, file_path) != 0)
         {
-            return 1;
+            return E_INTERNAL_ERROR;
         }
     }
 
     view->status = FILE_VIEW_STATUS_SAVED;
-    return 0;
+    return E_SUCCESS;
 }
 
 void file_view_render(FileView *view)
@@ -255,7 +255,7 @@ void file_view_render(FileView *view)
     wrefresh(view->win);
 }
 
-void file_view_handle_input(FileView *view, int input)
+int file_view_handle_input(FileView *view, int input)
 {
     int res = 1;
     int cursor_move = 0;
@@ -267,13 +267,13 @@ void file_view_handle_input(FileView *view, int input)
         if (view->sel_active)
         {
             view->sel_active = 0;
-            file_view_delete_selection(view);
-            return;
+            return file_view_delete_selection(view);
         }
+
         const FileLine *line = get_file_data_line(view->data, view->scroll_offset + view->pos_y);
         if (line == NULL)
         {
-            return;
+            return E_INTERNAL_ERROR;
         }
 
         int source_line = line->line;
@@ -284,13 +284,14 @@ void file_view_handle_input(FileView *view, int input)
             source_line--;
         }
         
-        file_data_get_display_coords(view->data, source_line, source_col, &temp_pos_y, &temp_pos_x);
+        if (file_data_get_display_coords(view->data, source_line, source_col, &temp_pos_y, &temp_pos_x) < 0)
+        {
+            return E_INTERNAL_ERROR;
+        }
         temp_pos_y -= view->scroll_offset;
     }
 
-
     view->sel_active = 0;
-
     switch (input)
     {
         case KEY_UP:
@@ -327,11 +328,6 @@ void file_view_handle_input(FileView *view, int input)
             modified = 1;
             break;
 
-        case '!':
-            res = 1;
-            file_view_delete_selection(view);
-            break;
-
         default:
             res = file_data_insert_char(view->data, view->pos_y + view->scroll_offset, view->pos_x, (char) input);
             cursor_move = KEY_RIGHT;
@@ -339,7 +335,7 @@ void file_view_handle_input(FileView *view, int input)
             break;
     }
 
-    if (res == 0)
+    if (res == E_SUCCESS)
     {
         if (cursor_move == KEY_BACKSPACE)
         {
@@ -364,8 +360,15 @@ void file_view_handle_input(FileView *view, int input)
         }
     }
 
+    if (res < E_SUCCESS)
+    {
+        return E_INTERNAL_ERROR;
+    }
+
     // FIXME: temporary for debug
     file_data_check_integrity(view->data);
+
+    return E_SUCCESS;
 }
 
 int file_view_copy_selection(FileView *view, char **buffer, int *len)
@@ -378,7 +381,7 @@ int file_view_copy_selection(FileView *view, char **buffer, int *len)
     *buffer = (char*) malloc(size * sizeof(char));
     if (*buffer == NULL)
     {
-        return 1;
+        return E_INTERNAL_ERROR;
     }
 
     int start_sel = 0;
@@ -398,7 +401,7 @@ int file_view_copy_selection(FileView *view, char **buffer, int *len)
 
             if (source_line == sel_stop_line && source_col + col == sel_stop_col)
             {
-                return 0;
+                return E_SUCCESS;
             }
 
             // Append char to selection
@@ -411,7 +414,7 @@ int file_view_copy_selection(FileView *view, char **buffer, int *len)
 
         if (start_sel && source_line == sel_stop_line && source_col + line->size == sel_stop_col)
         {
-            return 0;
+            return E_SUCCESS;
         }
 
         // Append new line to selection
@@ -422,7 +425,7 @@ int file_view_copy_selection(FileView *view, char **buffer, int *len)
         }
     }
 
-    return 0;
+    return E_SUCCESS;
 }
 
 int file_view_delete_selection(FileView *view)
@@ -432,7 +435,11 @@ int file_view_delete_selection(FileView *view)
 
     int source_line = sel_stop_line, source_col = sel_stop_col;
     int pos_x, pos_y;
-    file_data_get_display_coords(view->data, source_line, source_col, &pos_y, &pos_x);
+    if (file_data_get_display_coords(view->data, source_line, source_col, &pos_y, &pos_x) < 0)
+    {
+        return E_INTERNAL_ERROR;
+    }
+
     view->pos_x = pos_x;
     view->pos_y = pos_y - view->scroll_offset;
     update_cursor_position(view, KEY_BACKSPACE);
@@ -446,7 +453,7 @@ int file_view_delete_selection(FileView *view)
         source_col = line->col_start + view->pos_x;
     }
 
-    return 0;
+    return E_SUCCESS;
 }
 
 const char *file_view_get_title(FileView *view)
@@ -489,7 +496,7 @@ void update_cursor_position(FileView *view, int input)
 
     const FileLine *current_line = get_file_data_line(view->data, view->scroll_offset + view->pos_y);
 
-    if (current_line == 0)
+    if (current_line == NULL)
     {
         view->pos_x = 0;
         view->pos_y = 0;
@@ -574,7 +581,7 @@ int file_view_set_file_path(FileView *view, const char* file_path)
     view->file_path = (char*) malloc((strlen(file_path) + 1) * sizeof(char));
     if (view->file_path == NULL)
     {
-        return 1;
+        return E_INTERNAL_ERROR;
     }
     strcpy(view->file_path, file_path);
 
@@ -582,7 +589,7 @@ int file_view_set_file_path(FileView *view, const char* file_path)
     char *file_path_copy = (char*) malloc((strlen(file_path) + 1) * sizeof(char));
     if (file_path_copy == NULL)
     {
-        return 1;
+        return E_INTERNAL_ERROR;
     }
     strcpy(file_path_copy, file_path);
 
@@ -592,12 +599,12 @@ int file_view_set_file_path(FileView *view, const char* file_path)
     if (view->title == NULL)
     {
         free(file_path_copy);
-        return 1;
+        return E_INTERNAL_ERROR;
     }
     strcpy(view->title, title_temp);
     free(file_path_copy);
 
-    return 0;
+    return E_SUCCESS;
 }
 
 void file_view_get_selection_ranges(FileView *view, int *sel_start_line, int *sel_start_col, int *sel_stop_line, int *sel_stop_col)

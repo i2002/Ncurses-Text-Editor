@@ -146,13 +146,18 @@ int confirm_dialog(PANEL *dialog_panel, const char *prompt)
     return choice;
 }
 
-void alert_dialog(PANEL *dialog_panel, const char *prompt)
+void alert_dialog(PANEL *dialog_panel, const char *title, const char *message)
 {
     top_panel(dialog_panel);
     WINDOW *dialog_win = panel_window(dialog_panel);
-    render_dialog_window(dialog_win, prompt);
+    render_dialog_window(dialog_win, title);
     update_panels();
     doupdate();
+
+    if (message != NULL)
+    {
+        mvwprintw(dialog_win, 1, 2, message);
+    }
 
     int pos_x = (getmaxx(dialog_win) - 4) / 2;
     mvwaddch(dialog_win, 2, pos_x, '>');

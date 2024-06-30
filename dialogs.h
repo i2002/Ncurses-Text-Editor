@@ -29,9 +29,10 @@ int confirm_dialog(PANEL *dialog_panel, const char *prompt);
  * @brief Show dismissable alert dialog.
  * 
  * @param dialog_panel panel of the dialog
- * @param message title of the dialog
+ * @param title title of the dialog
+ * @param message description of alert dialog (can be NULL)
  */
-void alert_dialog(PANEL *dialog_panel, const char *message);
+void alert_dialog(PANEL *dialog_panel, const char *title, const char *message);
 
 /**
  * @brief Render dialog window with border, title and background color.

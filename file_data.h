@@ -1,6 +1,13 @@
 #ifndef FILE_DATA_H
 #define FILE_DATA_H
 
+#define E_SUCCESS         0
+#define E_INVALID_CHAR    1
+#define E_INTERNAL_ERROR -1
+#define E_IO_ERROR       -2
+#define E_INVALID_ARGS   -3
+
+
 typedef struct FileLine FileLine;
 typedef struct FileNode FileNode;
 typedef struct FileData FileData;
@@ -40,13 +47,6 @@ struct FileNode
     FileNode *prev;
     FileNode *next;
 }; 
-
-enum FileDataReturnType
-{
-    SUCCESS,
-    UNINITIALIZED_FILE_DATA,
-    // FIXME:
-};
 
 /**
  * @brief Create a file data.

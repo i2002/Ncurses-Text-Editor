@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ncurses.h>
+#include <errno.h>
 #include "dialogs.h"
 #include "colors.h"
 
@@ -262,7 +263,7 @@ int text_editor_new_tab(TextEditor *editor)
 
         if (editor->tabs == NULL)
         {
-            return 1;
+            return E_INTERNAL_ERROR;
         }
     }
     else
@@ -270,7 +271,7 @@ int text_editor_new_tab(TextEditor *editor)
         FileView **new_tabs = realloc(editor->tabs, (editor->n_tabs + 1) * sizeof(FileView*));
         if (new_tabs == NULL)
         {
-            return 1;
+            return E_INTERNAL_ERROR;
         }
 
         editor->tabs = new_tabs;
@@ -280,7 +281,7 @@ int text_editor_new_tab(TextEditor *editor)
 
     if (editor->tabs[editor->n_tabs] == NULL)
     {
-        return 1;
+        return E_INTERNAL_ERROR;
     }
 
     editor->current_tab = editor->n_tabs;
@@ -293,7 +294,7 @@ int text_editor_close_tab(TextEditor *editor)
 {
     if (editor->tabs == NULL)
     {
-        return 0;
+        return E_SUCCESS;
     }
 
     FileView *current_view = text_editor_get_current_view(editor);
@@ -302,7 +303,7 @@ int text_editor_close_tab(TextEditor *editor)
     {
         if (confirm_dialog(editor->dialog_panel, "Close file without saving changes?") == 0)
         {
-            return 0;
+            return E_SUCCESS;
         }
     }
 
@@ -320,14 +321,14 @@ int text_editor_close_tab(TextEditor *editor)
         free(editor->tabs);
         editor->tabs = NULL;
         editor->current_tab = -1;
-        return 0;
+        return E_SUCCESS;
     }
 
     FileView **new_tabs = realloc(editor->tabs, editor->n_tabs * sizeof(FileView*));
 
     if (new_tabs == NULL)
     {
-        return 1;
+        return E_INTERNAL_ERROR;
     }
 
     editor->tabs = new_tabs;
@@ -336,7 +337,7 @@ int text_editor_close_tab(TextEditor *editor)
     {
         editor->current_tab = 0;
     }
-    return 0;
+    return E_SUCCESS;
 }
 
 int text_editor_load_file(TextEditor *editor)
@@ -345,40 +346,50 @@ int text_editor_load_file(TextEditor *editor)
     if (input_dialog(editor->dialog_panel, "Enter file path", NULL, buffer, PATH_INPUT_BUFFER_LEN) == 0)
     {
         // User canceled file path input
-        return 0;
+        return E_SUCCESS;
     }
 
-    if (text_editor_new_tab(editor) != 0)
+    if (text_editor_new_tab(editor) < 0)
     {
-        return 1;
+        return E_INTERNAL_ERROR;
     }
 
-    if (file_view_load_file(editor->tabs[editor->current_tab], buffer) != 0)
+    
+    int ret = file_view_load_file(editor->tabs[editor->current_tab], buffer);
+    if (ret < 0)
     {
-        if (text_editor_close_tab(editor) != 0)
+        int load_errno = errno;
+
+        if (text_editor_close_tab(editor) < 0)
         {
-            return 1;
+            return E_INTERNAL_ERROR;
         }
-
-        alert_dialog(editor->dialog_panel, "Error while loading file");
+        
+        if (ret == E_IO_ERROR)
+        {
+            alert_dialog(editor->dialog_panel, "Error while loading file", strerror(load_errno));
+        }
+        else
+        {
+            return E_INTERNAL_ERROR;
+        }
     }
 
-    return 0;
+    return E_SUCCESS;
 }
 
-void text_editor_save_file(TextEditor *editor, int save_as)
+int text_editor_save_file(TextEditor *editor, int save_as)
 {
     FileView *current_view = text_editor_get_current_view(editor);
 
     if (current_view == NULL)
     {
-        return;
+        return E_SUCCESS;
     }
     
     if (!save_as && file_view_get_file_path(current_view) == NULL)
     {
-        text_editor_save_file(editor, 1);
-        return;
+        return text_editor_save_file(editor, 1);
     }
 
     char *save_path = NULL;
@@ -391,16 +402,27 @@ void text_editor_save_file(TextEditor *editor, int save_as)
         if (input_dialog(editor->dialog_panel, "Enter file path", initial_data, buffer, PATH_INPUT_BUFFER_LEN) == 0)
         {
             // User canceled file path input
-            return;
+            return E_SUCCESS;
         }
 
         save_path = buffer;
     }
     
-    if (file_view_save_file(current_view, save_path) != 0)
+    int ret;
+    if ((ret = file_view_save_file(current_view, save_path)) < 0)
     {
-        alert_dialog(editor->dialog_panel, "Error while saving file");
+        if (ret == E_IO_ERROR)
+        {
+            int save_errno = errno;
+            alert_dialog(editor->dialog_panel, "Error while saving file", strerror(save_errno));
+        }
+        else
+        {
+            return E_INTERNAL_ERROR;
+        }
     }
+
+    return E_SUCCESS;
 }
 
 void text_editor_set_current_tab(TextEditor *editor, int index)
@@ -619,7 +641,7 @@ int text_editor_copy_selection(TextEditor *editor, int cut)
 
     if (current_view == NULL)
     {
-        return 0;
+        return E_SUCCESS;
     }
 
     if (editor->clipboard != NULL)
@@ -628,22 +650,22 @@ int text_editor_copy_selection(TextEditor *editor, int cut)
         editor->clipboard_length = 0;
     }
 
-    if (file_view_copy_selection(current_view, &editor->clipboard, &editor->clipboard_length) != 0)
+    if (file_view_copy_selection(current_view, &editor->clipboard, &editor->clipboard_length) < 0)
     {
-        return 1;
+        return E_INTERNAL_ERROR;
     }
 
     if (cut)
     {
-        if (file_view_delete_selection(current_view) != 0)
+        if (file_view_delete_selection(current_view) < 0)
         {
-            return 1;
+            return E_INTERNAL_ERROR;
         }
 
         file_view_render(current_view);
     }
 
-    return 0;
+    return E_SUCCESS;
 }
 
 int text_editor_paste_selection(TextEditor *editor)
@@ -652,16 +674,19 @@ int text_editor_paste_selection(TextEditor *editor)
 
     if (current_view == NULL || editor->clipboard == NULL)
     {
-        return 0;
+        return E_SUCCESS;
     }
 
     for (int i = 0; i < editor->clipboard_length; i++)
     {
-        file_view_handle_input(current_view, editor->clipboard[i]);
+        if (file_view_handle_input(current_view, editor->clipboard[i]) < 0)
+        {
+            return E_INTERNAL_ERROR;
+        }
     }
 
     file_view_render(current_view);
-    return 0;
+    return E_SUCCESS;
 }
 
 int text_editor_delete_selection(TextEditor *editor)
@@ -670,16 +695,16 @@ int text_editor_delete_selection(TextEditor *editor)
 
     if (current_view == NULL)
     {
-        return 0;
+        return E_SUCCESS;
     }
     
-    if (file_view_delete_selection(current_view) != 0)
+    if (file_view_delete_selection(current_view) < 0)
     {
-        return 1;
+        return E_INTERNAL_ERROR;
     }
 
     file_view_render(current_view);
-    return 0;
+    return E_SUCCESS;
 }
 
 FileView *text_editor_get_current_view(TextEditor *editor)
@@ -753,7 +778,7 @@ int text_editor_menu_action(TextEditor *editor)
     // Disabled item
     if (!(item_opts(item) & O_SELECTABLE))
     {
-        return 0;
+        return E_SUCCESS;
     }
 
     // Close menu
@@ -797,10 +822,6 @@ int text_editor_menu_action(TextEditor *editor)
             top_panel(current_view->panel);
             file_view_render(current_view);
         }
-    }
-    else
-    {
-        fprintf(stderr, "Text editor: unexpected error\n");
     }
 
     return ret;
