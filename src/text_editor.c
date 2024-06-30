@@ -568,7 +568,7 @@ int text_editor_handle_resize(TextEditor *editor)
     FileView *current_view = text_editor_get_current_view(editor);
     if (current_view != NULL)
     {
-        if (file_view_handle_input(current_view, KEY_RESIZE) < 0)
+        if (file_view_handle_resize(current_view, FILE_VIEW_HEIGHT, FILE_VIEW_WIDTH, FILE_VIEW_OFFSET_Y, FILE_VIEW_OFFSET_X) < 0)
         {
             return E_INTERNAL_ERROR;
         }

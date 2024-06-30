@@ -88,6 +88,18 @@ int file_view_save_file(FileView *view, const char *file_path);
 void file_view_render(FileView *view);
 
 /**
+ * @brief Handle window resize.
+ * 
+ * @param view pointer to initialized FileView structure
+ * @param height the height of the view window
+ * @param width the width of the view window
+ * @param offset_y the vertical offest of the view window
+ * @param offset_x the horizontal offset of the view window
+ * @return int 0 for success, < 0 for failure
+ */
+int file_view_handle_resize(FileView *view, int height, int width, int offset_y, int offset_x);
+
+/**
  * @brief Update view status after keyboard input.
  * 
  * @param view pointer to initialized FileView structure

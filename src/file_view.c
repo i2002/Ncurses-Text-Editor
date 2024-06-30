@@ -299,6 +299,31 @@ void file_view_render(FileView *view)
     wrefresh(view->win);
 }
 
+int file_view_handle_resize(FileView *view, int height, int width, int offset_y, int offset_x)
+{
+    
+    if (resize_file_data_col(view->data, getmaxx(view->win) - 1) < 0)
+    {
+        return E_INTERNAL_ERROR;
+    }
+
+    WINDOW *old_win = view->win;
+    view->win = newwin(height, width, offset_y, offset_x);
+    if (view->win == NULL)
+    {
+        view->win = old_win;
+        return E_INTERNAL_ERROR;
+    }
+
+    replace_panel(view->panel, view->win);
+    delwin(old_win);
+
+    update_cursor_position(view, 0);
+    update_selection(view);
+
+    return E_SUCCESS;
+}
+
 int file_view_handle_input(FileView *view, int input)
 {
     int res = 1;
@@ -370,10 +395,6 @@ int file_view_handle_input(FileView *view, int input)
             res = file_data_delete_char(view->data, view->pos_y + view->scroll_offset, view->pos_x - 1);
             cursor_move = KEY_BACKSPACE;
             modified = 1;
-            break;
-
-        case KEY_RESIZE:
-            res = resize_file_data_col(view->data, getmaxx(view->win) - 1);
             break;
 
         default:
