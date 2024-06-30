@@ -213,7 +213,12 @@ void file_view_render(FileView *view)
                 waddch(view->win, line->content[col] | mod);
             }
 
-            if (start_sel && source_line == sel_stop_line && source_col + line->size == sel_stop_col)
+            if (source_line == sel_start_line && source_col + line->size == sel_start_col)
+            {
+                start_sel = 1;
+            }
+
+            if (source_line == sel_stop_line && source_col + line->size == sel_stop_col)
             {
                 start_sel = 0;
             }
@@ -409,6 +414,11 @@ int file_view_copy_selection(FileView *view, char **buffer, int *len)
                 (*buffer)[*len] = line->content[col];
                 (*len)++;
             }
+        }
+
+        if (source_line == sel_start_line && source_col + line->size == sel_start_col)
+        {
+            start_sel = 1;
         }
 
         if (start_sel && source_line == sel_stop_line && source_col + line->size == sel_stop_col)
