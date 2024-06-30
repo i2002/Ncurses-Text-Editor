@@ -856,6 +856,13 @@ int text_editor_menu_action(TextEditor *editor)
             break;
 
         case FILE_MENU_QUIT_OPTION:
+            for (int i = 0; i < editor->n_tabs; i++)
+            {
+                if (file_view_get_status(editor->tabs[i]) != FILE_VIEW_STATUS_SAVED)
+                {
+                    return confirm_dialog(editor, editor->dialog_panel, "Close application with unsaved files?");
+                }
+            }
             return 1;
     }
 
