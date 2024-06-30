@@ -15,7 +15,7 @@ int main()
     assert(create_file_data(3, &file) >= 0);
     file_data_check_integrity(&file);
 
-    assert(load_file_data(&file, "file.txt") >= 0);
+    assert(load_file_data(&file, "data/file.txt") >= 0);
     file_data_check_integrity(&file);
 
     assert(file_data_delete_char(&file, 0, 0) >= 0);
