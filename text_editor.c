@@ -20,6 +20,14 @@
 
 #define PATH_INPUT_BUFFER_LEN 256
 
+#define KEY_RETURN '\n'
+#define KEY_ESC 27
+#define KEY_TAB 9
+#define KEY_CTRL_C 3
+#define KEY_CTRL_V 22
+#define KEY_CTRL_X 24
+#define KEY_CTRL_Y 25
+
 static const char *menu_labels[MENU_ITEMS_SIZE] = {
     "New file          ",
     "Open file         ",
@@ -169,10 +177,8 @@ TextEditor* create_text_editor()
 
     // Panel ordering
     hide_panel(editor->menu_panel);
+    hide_panel(editor->dialog_panel);
     top_panel(editor->about_panel);
-    update_panels();
-    doupdate();
-
     return editor;
 }
 
@@ -301,7 +307,7 @@ int text_editor_close_tab(TextEditor *editor)
     FileViewStatus status = file_view_get_status(current_view);
     if (status == FILE_VIEW_STATUS_NEW_FILE || status == FILE_VIEW_STATUS_MODIFIED)
     {
-        if (confirm_dialog(editor->dialog_panel, "Close file without saving changes?") == 0)
+        if (confirm_dialog(editor, editor->dialog_panel, "Close file without saving changes?") == 0)
         {
             return E_SUCCESS;
         }
@@ -343,7 +349,7 @@ int text_editor_close_tab(TextEditor *editor)
 int text_editor_load_file(TextEditor *editor)
 {
     char buffer[PATH_INPUT_BUFFER_LEN];
-    if (input_dialog(editor->dialog_panel, "Enter file path", NULL, buffer, PATH_INPUT_BUFFER_LEN) == 0)
+    if (input_dialog(editor, editor->dialog_panel, "Enter file path", NULL, buffer, PATH_INPUT_BUFFER_LEN) == 0)
     {
         // User canceled file path input
         return E_SUCCESS;
@@ -367,7 +373,7 @@ int text_editor_load_file(TextEditor *editor)
         
         if (ret == E_IO_ERROR)
         {
-            alert_dialog(editor->dialog_panel, "Error while loading file", strerror(load_errno));
+            alert_dialog(editor, editor->dialog_panel, "Error while loading file", strerror(load_errno));
         }
         else
         {
@@ -399,7 +405,7 @@ int text_editor_save_file(TextEditor *editor, int save_as)
         const char *file_path = file_view_get_file_path(current_view);
         const char *initial_data = file_path != NULL ? file_path : "";
 
-        if (input_dialog(editor->dialog_panel, "Enter file path", initial_data, buffer, PATH_INPUT_BUFFER_LEN) == 0)
+        if (input_dialog(editor, editor->dialog_panel, "Enter file path", initial_data, buffer, PATH_INPUT_BUFFER_LEN) == 0)
         {
             // User canceled file path input
             return E_SUCCESS;
@@ -414,7 +420,7 @@ int text_editor_save_file(TextEditor *editor, int save_as)
         if (ret == E_IO_ERROR)
         {
             int save_errno = errno;
-            alert_dialog(editor->dialog_panel, "Error while saving file", strerror(save_errno));
+            alert_dialog(editor, editor->dialog_panel, "Error while saving file", strerror(save_errno));
         }
         else
         {
@@ -538,12 +544,54 @@ void text_editor_render(TextEditor *editor)
     wattroff(win, i == editor->n_tabs ? INTERFACE_DISABLED : A_BOLD);
 }
 
+int text_editor_handle_resize(TextEditor *editor)
+{
+    // Move main menu
+    move_panel(editor->menu_panel, (LINES - MENU_HEIGHT) / 2, (COLS - MENU_WIDTH) / 2);
+
+    // Resize and move dialog win
+    WINDOW *old_win = editor->dialog_win;
+    editor->dialog_win = newwin(DIALOG_HEIGHT, DIALOG_WIDTH, (LINES - DIALOG_HEIGHT) / 2, (COLS - DIALOG_WIDTH) / 2);
+    if (editor->dialog_win == NULL)
+    {
+        editor->dialog_win = old_win;
+        return E_INTERNAL_ERROR;
+    }
+
+    replace_panel(editor->dialog_panel, editor->dialog_win);
+    delwin(old_win);
+
+    // Rerender text editor top bar
+    text_editor_render(editor);
+
+    // Rezise current view
+    FileView *current_view = text_editor_get_current_view(editor);
+    if (current_view != NULL)
+    {
+        if (file_view_handle_input(current_view, KEY_RESIZE) < 0)
+        {
+            return E_INTERNAL_ERROR;
+        }
+        file_view_render(current_view);
+    }
+
+    update_panels();
+    doupdate();
+    return E_SUCCESS;
+}
+
 int text_editor_handle_input(TextEditor *editor, int input)
 {
     int ret = 0;
     FileView *current_view = text_editor_get_current_view(editor);
 
     MEVENT event;
+
+    if (input == KEY_RESIZE)
+    {
+        return text_editor_handle_resize(editor);
+    }
+
     if (!panel_hidden(editor->menu_panel))
     {
         wrefresh(editor->menu_win);
@@ -561,14 +609,14 @@ int text_editor_handle_input(TextEditor *editor, int input)
                 break;
 
             // Apply action
-            case 10: // \n
+            case KEY_RETURN:
             case KEY_ENTER:
                 ret = text_editor_menu_action(editor);
                 break;
 
             // Exit menu
             case KEY_F(1):
-            case 27: // Escape
+            case KEY_ESC:
                 hide_panel(editor->menu_panel);
                 break;
         }
@@ -594,7 +642,7 @@ int text_editor_handle_input(TextEditor *editor, int input)
                 break;
 
             // Cycle tabs
-            case 9: // Tab
+            case KEY_TAB:
                 text_editor_set_current_tab(editor, editor->current_tab + 1);
                 break;
 
@@ -603,19 +651,19 @@ int text_editor_handle_input(TextEditor *editor, int input)
                 break;
 
             // Clipboard shortcuts
-            case 3: // Ctrl + C
+            case KEY_CTRL_C:
                 ret = text_editor_copy_selection(editor, 0);
                 break;
 
-            case 22: // Ctrl + V
+            case KEY_CTRL_V:
                 ret = text_editor_paste_selection(editor);
                 break;
 
-            case 24: // Ctrl + X
+            case KEY_CTRL_X:
                 ret = text_editor_copy_selection(editor, 1);
                 break;
 
-            case 25: // Ctrl + Y
+            case KEY_CTRL_Y:
                 ret = text_editor_delete_selection(editor);
                 break;
 
@@ -807,12 +855,12 @@ int text_editor_menu_action(TextEditor *editor)
             ret = text_editor_close_tab(editor);
             break;
 
-        case 5:
+        case FILE_MENU_QUIT_OPTION:
             return 1;
     }
 
     // Rerender views
-    if (ret == 0)
+    if (ret >= 0)
     {
         text_editor_render(editor);
 

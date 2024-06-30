@@ -188,17 +188,58 @@ int save_file_data(FileData *file_data, const char* file_path)
     return E_SUCCESS;
 }
 
-// int resize_file_data_col(FileData *file_data, int cols)
-// {
-//     if (file_data == NULL || cols < 1)
-//     {
-//         return 1;
-//     }
+int resize_file_data_col(FileData *file_data, int cols)
+{
+    if (file_data == NULL || cols < 1)
+    {
+        return E_INVALID_ARGS;
+    }
 
-//     FileNode *current = file_data->start;
-//     FileData new_file_data;
-//     create_file_data(cols, )
-// }
+    FileNode *c = file_data->start;
+    while(c != NULL)
+    {
+        FileLine *data = &(c->data);
+        if (data->size > cols)
+        {
+            int len = data->size - cols;
+            char *buffer = data->content + cols;
+
+            // Insert new line
+            FileNode *new_node = insert_node(file_data, c, data->line, data->col_start + cols, data->endl, buffer, len);
+            
+            if (new_node == NULL)
+            {
+                return E_INTERNAL_ERROR;
+            }
+
+            // Remove moved content from line
+            data->size = cols;
+            data->content[data->size] = '\0';
+            data->endl = 0;
+        }
+
+        // Resize content buffer
+        char *new_content = realloc(data->content, cols + 1);
+        if (new_content == NULL)
+        {
+            return E_INTERNAL_ERROR;
+        }
+
+        data->content = new_content;
+
+        c = c->next;
+    }
+
+    // Normalize lines
+    file_data->display_cols = cols;
+    FileNode *line_start = file_data->start;
+    while(line_start != NULL)
+    {
+        line_start = normalize_line(file_data, line_start);
+    }
+
+    return E_SUCCESS;
+}
 
 int set_file_data_line(FileData *file_data, int index)
 {
@@ -315,13 +356,10 @@ int file_data_insert_char(FileData *file_data, int line, int col, char ins)
         // Shift subsequent lines
         update_line(new_node->next, 1);
 
-        if (data != NULL)
-        {
-            // Remove moved content from line
-            data->size = col;
-            data->content[data->size] = '\0';
-            data->endl = 1;
-        }
+        // Remove moved content from line
+        data->size = col;
+        data->content[data->size] = '\0';
+        data->endl = 1;
 
         // Shift content of subsequent lines
         (void) normalize_line(file_data, new_node);
@@ -712,9 +750,13 @@ static FileNode* find_node(const FileData *file_data, int index)
 static FileNode* normalize_line(FileData *file_data, FileNode *node)
 {
     // Stop conditions
-    if (node == NULL || node->data.endl)
+    if (node == NULL)
     {
         return node;
+    }
+    else if (node->data.endl)
+    {
+        return node->next;
     }
 
     FileLine *line = &node->data;

@@ -3,6 +3,8 @@
 
 #include <stdlib.h>
 
+TextEditor *editor = NULL;
+
 int main()
 {
     // Initialize ncurses
@@ -18,7 +20,9 @@ int main()
     setup_colors();
 
     // Initialized text editor
-    TextEditor *editor = create_text_editor();
+    editor = create_text_editor();
+    update_panels();
+    doupdate();
 
     if (editor == NULL)
     {

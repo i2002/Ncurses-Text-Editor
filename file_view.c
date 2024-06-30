@@ -123,11 +123,6 @@ void free_file_view(FileView *view)
 
 int file_view_load_file(FileView *view, const char* file_path)
 {
-    // Get window dimensions
-    int width = getmaxx(view->win);
-
-    // Recreate file data structure
-    create_file_data(width - 1, view->data);
     view->status = FILE_VIEW_STATUS_UNINITIALIZED;
 
     // Try to load file into data structure
@@ -326,6 +321,10 @@ int file_view_handle_input(FileView *view, int input)
             res = file_data_delete_char(view->data, view->pos_y + view->scroll_offset, view->pos_x - 1);
             cursor_move = KEY_BACKSPACE;
             modified = 1;
+            break;
+
+        case KEY_RESIZE:
+            res = resize_file_data_col(view->data, getmaxx(view->win) - 1);
             break;
 
         default:
@@ -578,6 +577,11 @@ int file_view_set_file_path(FileView *view, const char* file_path)
         free(view->file_path);
     }
 
+    if (view->file_path != NULL)
+    {
+        free(view->file_path);
+    }
+
     view->file_path = (char*) malloc((strlen(file_path) + 1) * sizeof(char));
     if (view->file_path == NULL)
     {
@@ -594,6 +598,11 @@ int file_view_set_file_path(FileView *view, const char* file_path)
     strcpy(file_path_copy, file_path);
 
     const char *title_temp = basename(file_path_copy);
+
+    if (view->title != NULL)
+    {
+        free(view->title);
+    }
 
     view->title = (char*) malloc((strlen(title_temp) + 1) * sizeof(char));
     if (view->title == NULL)

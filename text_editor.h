@@ -99,6 +99,13 @@ void text_editor_set_current_tab(TextEditor *editor, int index);
 void text_editor_render(TextEditor *editor);
 
 /**
+ * @brief Handle screen resize.
+ * 
+ * @param editor pointer to TextEditor instance
+ */
+int text_editor_handle_resize(TextEditor *editor);
+
+/**
  * @brief Handle text editor input.
  * 
  * @param editor pointer to TextEditor instance

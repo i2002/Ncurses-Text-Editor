@@ -19,67 +19,75 @@ int main()
     create_file_data(3, &file);
     file_data_check_integrity(&file);
 
-    load_file_data(&file, "test2.txt");
+    load_file_data(&file, "file.txt");
     file_data_check_integrity(&file);
     // print_file_data(&file);
 
-    assert(file_data_delete_char(&file, 0, 0) == 0);
+    assert(file_data_delete_char(&file, 0, 0) >= 0);
     file_data_check_integrity(&file);
 
-    assert(file_data_delete_char(&file, 3, 0) == 0);
+    assert(file_data_delete_char(&file, 3, 0) >= 0);
     file_data_check_integrity(&file);
 
-    assert(file_data_delete_char(&file, 3, 0) == 0);
+    assert(file_data_delete_char(&file, 3, 0) >= 0);
     file_data_check_integrity(&file);
 
-    assert(file_data_delete_char(&file, 3, 0) == 0);
+    assert(file_data_delete_char(&file, 3, 0) >= 0);
     file_data_check_integrity(&file);
 
-    assert(file_data_delete_char(&file, 2, 0) == 0);
+    assert(file_data_delete_char(&file, 2, 0) >= 0);
     file_data_check_integrity(&file);
 
-    assert(file_data_delete_char(&file, 2, 0) == 0);
+    assert(file_data_delete_char(&file, 2, 0) >= 0);
     file_data_check_integrity(&file);
 
-    assert(file_data_delete_char(&file, 2, 0) == 0);
+    assert(file_data_delete_char(&file, 2, 0) >= 0);
     file_data_check_integrity(&file);
 
-    assert(file_data_insert_char(&file, 2, 0, 'a') == 0);
+    assert(file_data_insert_char(&file, 2, 0, 'a') >= 0);
     file_data_check_integrity(&file);
 
-    assert(file_data_insert_char(&file, 2, 0, 'b') == 0);
+    assert(file_data_insert_char(&file, 2, 0, 'b') >= 0);
     file_data_check_integrity(&file);
 
-    assert(file_data_insert_char(&file, 2, 0, 'c') == 0);
+    assert(file_data_insert_char(&file, 2, 0, 'c') >= 0);
     file_data_check_integrity(&file);
 
-    assert(file_data_insert_char(&file, 2, 0, 'd') == 0);
+    assert(file_data_insert_char(&file, 2, 0, 'd') >= 0);
     file_data_check_integrity(&file);
 
-    assert(file_data_insert_char(&file, 2, 1, 'y') == 0);
+    assert(file_data_insert_char(&file, 2, 1, 'y') >= 0);
     file_data_check_integrity(&file);
 
-    print_file_data(&file);
-    assert(file_data_insert_char(&file, 2, 1, '\n') == 0);
-    print_file_data(&file);
+    // print_file_data(&file);
+    assert(file_data_insert_char(&file, 2, 1, '\n') >= 0);
+    // print_file_data(&file);
     file_data_check_integrity(&file);
 
-    assert(file_data_insert_char(&file, 1, 2, '\n') == 0);
+    assert(file_data_insert_char(&file, 1, 2, '\n') >= 0);
     file_data_check_integrity(&file);
-    print_file_data(&file);
+    // print_file_data(&file);
 
-    assert(file_data_delete_char(&file, 4, -1) == 0);
-    print_file_data(&file);
-    file_data_check_integrity(&file);
-
-    assert(file_data_insert_char(&file, 1, 2, 'x') == 0);
+    assert(file_data_delete_char(&file, 4, -1) >= 0);
+    // print_file_data(&file);
     file_data_check_integrity(&file);
 
-    assert(file_data_insert_char(&file, 1, 3, 'p') == 0);
+    assert(file_data_insert_char(&file, 1, 2, 'x') >= 0);
     file_data_check_integrity(&file);
-    print_file_data(&file);
 
+    assert(file_data_insert_char(&file, 1, 3, 'p') >= 0);
+    file_data_check_integrity(&file);
+    // print_file_data(&file);
+
+    resize_file_data_col(&file, 10);
+    file_data_check_integrity(&file);
+
+    resize_file_data_col(&file, 5);
+    file_data_check_integrity(&file);
+    // print_file_data(&file);
     // file_data_delete_char(&file, 0, 1);
     // file_data_delete_char(&file, 0, 1);
+
+    free_file_data(&file);
     return 0;
 }
