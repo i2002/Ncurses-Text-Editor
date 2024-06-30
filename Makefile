@@ -16,6 +16,10 @@ all: main
 main: main.c $(OBJS)
 	$(CC) -o $@ $^ $(CFLAGS) $(LIBS)
 
+# File data unit testing
+unit_testing: unit_testing.c $(BUILD)/file_data.o
+	$(CC) -o $@ $^ $(CFLAGS) $(LIBS)
+
 # Rule for compiling object files
 $(BUILD)/%.o: %.c %.h
 	@mkdir -p $(BUILD)
@@ -23,6 +27,6 @@ $(BUILD)/%.o: %.c %.h
 
 # Clean rule to remove build artifacts
 clean:
-	rm -rf $(BUILD) main
+	rm -rf $(BUILD) main unit_testing
 
 .PHONY: all clean

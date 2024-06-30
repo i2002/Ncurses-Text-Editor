@@ -2,7 +2,7 @@
     "tasks": [
         {
             "type": "cppbuild",
-            "label": "C/C++: make build project",
+            "label": "Build project",
             "command": "make",
             "args": [
                 "all",
@@ -16,6 +16,23 @@
             "group": {
                 "kind": "build",
                 "isDefault": true
+            },
+        },
+        {
+            "type": "cppbuild",
+            "label": "Build unit test",
+            "command": "make",
+            "args": [
+                "unit_testing",
+            ],
+            "options": {
+                "cwd": "${workspaceRoot}"
+            },
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": {
+                "kind": "build",
             },
         }
     ],
