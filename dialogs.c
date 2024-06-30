@@ -62,9 +62,9 @@ int input_dialog(TextEditor *editor, PANEL *dialog_panel, const char *prompt, co
             strncpy(buffer, initial_input, buffer_len);
             buffer[buffer_len - 1] = '\0';
         }
-        set_field_buffer(fields[0], 0, buffer);
         
         set_field_opts(fields[0], O_VISIBLE | O_PUBLIC | O_EDIT | O_ACTIVE);
+        set_field_buffer(fields[0], 0, buffer);
         set_field_back(fields[0], COLOR_PAIR(INTERFACE_COLOR) | A_UNDERLINE);
         
         FORM *form = new_form(fields);

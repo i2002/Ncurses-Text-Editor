@@ -33,6 +33,13 @@ const char default_title[] = "Untitled";
 void update_cursor_position(FileView *view, int input);
 
 /**
+ * @brief Update view selection after cursor moved.
+ * 
+ * @param view pointer to initialized FileView structure
+ */
+void update_selection(FileView *view);
+
+/**
  * @brief Set file view path.
  * 
  * @param view pointer to initialized FileView structure
@@ -348,15 +355,7 @@ int file_view_handle_input(FileView *view, int input)
         }
 
         update_cursor_position(view, cursor_move);
-
-        const FileLine *line = get_file_data_line(view->data, view->scroll_offset + view->pos_y);
-        if (!view->sel_active)
-        {
-            view->sel_start_line = line->line;
-            view->sel_start_col = view->pos_x + line->col_start;
-        }
-        view->sel_stop_line = line->line;
-        view->sel_stop_col = view->pos_x + line->col_start;
+        update_selection(view);
 
         if (modified)
         {
@@ -579,14 +578,27 @@ void update_cursor_position(FileView *view, int input)
     }
 }
 
+void update_selection(FileView *view)
+{
+    const FileLine *line = get_file_data_line(view->data, view->scroll_offset + view->pos_y);
+    if (line == NULL)
+    {
+        return;
+    }
+    
+    if (!view->sel_active)
+    {
+        view->sel_start_line = line->line;
+        view->sel_start_col = view->pos_x + line->col_start;
+    }
+
+    view->sel_stop_line = line->line;
+    view->sel_stop_col = view->pos_x + line->col_start;
+}
+
 int file_view_set_file_path(FileView *view, const char* file_path)
 {
     // Set view file path
-    if (view->file_path != NULL)
-    {
-        free(view->file_path);
-    }
-
     if (view->file_path != NULL)
     {
         free(view->file_path);
