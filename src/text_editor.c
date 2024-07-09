@@ -597,6 +597,28 @@ int text_editor_handle_input(TextEditor *editor, int input)
         wrefresh(editor->menu_win);
         switch (input)
         {
+            // Mouse input
+            case KEY_MOUSE:
+                if (getmouse(&event) == OK)
+                {
+                    // click inside menu window
+                    if (wmouse_trafo(editor->menu_win, &event.y, &event.x, FALSE) == TRUE)
+                    {
+                        // menu item selected
+                        if (event.y > 0 && event.y <= MENU_ITEMS_SIZE && event.x > 0 && event.x < MENU_WIDTH - 1)
+                        {
+                            set_current_item(editor->menu, editor->menu_items[event.y - 1]);
+                            ret = text_editor_menu_action(editor);
+                        }
+                    }
+                    // click outside menu window -> close menu
+                    else
+                    {
+                        hide_panel(editor->menu_panel);
+                    }
+                }
+                break;
+
             // Change menu options
             case KEY_DOWN:
                 menu_driver(editor->menu, REQ_DOWN_ITEM);
