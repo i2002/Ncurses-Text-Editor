@@ -31,12 +31,12 @@
 #define KEY_ALT_RIGHT 567
 
 static const char *menu_labels[MENU_ITEMS_SIZE] = {
-    "New file          ",
-    "Open file         ",
-    "Save file         ",
-    "Save file as      ",
-    "Close file        ",
-    "Quit              "
+    "(N)ew file        ",
+    "(O)pen file       ",
+    "(S)ave file       ",
+    "Save file (a)s    ",
+    "(C)lose file      ",
+    "(Q)uit            "
 };
 
 enum FileMenuOptions {
@@ -642,6 +642,43 @@ int text_editor_handle_input(TextEditor *editor, int input)
             case KEY_F(1):
             case KEY_ESC:
                 hide_panel(editor->menu_panel);
+                break;
+
+            // Letter shortcuts
+            case 'N':
+            case 'n':
+                set_current_item(editor->menu, editor->menu_items[FILE_MENU_NEW_FILE_OPTION]);
+                ret = text_editor_menu_action(editor);
+                break;
+
+            case 'O':
+            case 'o':
+                set_current_item(editor->menu, editor->menu_items[FILE_MENU_OPEN_FILE_OPTION]);
+                ret = text_editor_menu_action(editor);
+                break;
+
+            case 'S':
+            case 's':
+                set_current_item(editor->menu, editor->menu_items[FILE_MENU_SAVE_FILE_OPTION]);
+                ret = text_editor_menu_action(editor);
+                break;
+
+            case 'A':
+            case 'a':
+                set_current_item(editor->menu, editor->menu_items[FILE_MENU_SAVE_FILE_AS_OPTION]);
+                ret = text_editor_menu_action(editor);
+                break;
+
+            case 'C':
+            case 'c':
+                set_current_item(editor->menu, editor->menu_items[FILE_MENU_CLOSE_TAB_OPTION]);
+                ret = text_editor_menu_action(editor);
+                break;
+
+            case 'Q':
+            case 'q':
+                set_current_item(editor->menu, editor->menu_items[FILE_MENU_QUIT_OPTION]);
+                ret = text_editor_menu_action(editor);
                 break;
         }
     }
