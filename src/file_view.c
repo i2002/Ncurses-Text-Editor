@@ -219,7 +219,12 @@ void file_view_render(FileView *view)
                 }
 
                 int mod = start_sel ? A_STANDOUT : 0;
-                waddch(view->win, line->content[col] | mod);
+                int ch = line->content[col];
+                if (ch == '\t')
+                {
+                    ch = ACS_RARROW | COLOR_PAIR(MARKER_COLOR);
+                }
+                waddch(view->win, ch | mod);
             }
 
             if (source_line == sel_start_line && source_col + line->size == sel_start_col)

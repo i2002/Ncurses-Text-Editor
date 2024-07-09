@@ -113,12 +113,11 @@ static void write_line(FileLine *line, char *buffer, int len);
 static void update_line(FileNode *start, int value);
 
 /**
- * @brief Update the line number of display lines starting from node.
+ * @brief Read next valid character from file
  * 
- * @param start the start node
- * @param value the value to be added to line
+ * @param f file pointer to read from
  */
-static char fget_next_char(FILE *f, int *tab_count);
+static char fget_next_char(FILE *f);
 
 /**
  * @brief Check if input character is valid for display.
@@ -194,9 +193,8 @@ int load_file_data(FileData *file_data, const char *file_name)
     int buffer_index = 0;
     int real_line = 0;
     int col_start = 0;
-    int tab_count = 0;
     char ch;
-    while ((ch = fget_next_char(fin, &tab_count)) != EOF)
+    while ((ch = fget_next_char(fin)) != EOF)
     {
         // Append character to the buffer
         if (ch != '\n')
@@ -940,46 +938,26 @@ static void update_line(FileNode *start, int value)
     }
 }
 
-static char fget_next_char(FILE *f, int *tab_count)
+static char fget_next_char(FILE *f)
 {
-    char ch;
-
-    // Normal input
-    if (*tab_count == 0)
+    while(1)
     {
-        ch = fgetc(f);
-    
-        // Start of tab input
-        if (ch == '\t')
+        char ch = fgetc(f);
+        if (ch == EOF)
         {
-            ch = ' ';
-            *tab_count = 1;
+            return EOF;
         }
 
-        // Skip invalid character input
-        if (!valid_character(ch))
+        if (valid_character(ch))
         {
-            return fget_next_char(f, tab_count);
+            return ch;
         }
     }
-    // Tab input
-    else
-    {
-        (*tab_count)++;
-        ch = ' ';
-
-        if (*tab_count == TAB_SIZE)
-        {
-            *tab_count = 0;
-        }
-    }
-
-    return ch;
 }
 
 static int valid_character(int c)
 {
-    if (c == EOF || c == '\n')
+    if (c == EOF || c == '\n' || c == '\t')
     {
         return 1;
     }
