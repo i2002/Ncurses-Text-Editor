@@ -20,8 +20,8 @@ This is a simple terminal text editor built using the ncurses library.
 ## Usage
 
 - File menu can be activated by pressing `F1` or by clicking the `File` button in the application top bar
-- Change current tab by pressing `Tab` or `Shift + tab` or by clicking on a tab
-- Menu navigation using arrow keys, apply selected action by pressing enter
+- Change current tab by pressing `Alt + Right` or `Alt + Left` or by clicking on a tab
+- Menu navigation using arrow keys, apply selected action by pressing enter or by selecting shortcut letter or by clicking menu option
 - When editing a file, cursor position can be moved using arrow keys
 - To start a selection, press shift while moving cursor
 

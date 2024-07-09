@@ -27,6 +27,8 @@
 #define KEY_CTRL_V 22
 #define KEY_CTRL_X 24
 #define KEY_CTRL_Y 25
+#define KEY_ALT_LEFT 552
+#define KEY_ALT_RIGHT 567
 
 static const char *menu_labels[MENU_ITEMS_SIZE] = {
     "New file          ",
@@ -664,11 +666,11 @@ int text_editor_handle_input(TextEditor *editor, int input)
                 break;
 
             // Cycle tabs
-            case KEY_TAB:
+            case KEY_ALT_RIGHT:
                 text_editor_set_current_tab(editor, editor->current_tab + 1);
                 break;
 
-            case KEY_BTAB:
+            case KEY_ALT_LEFT:
                 text_editor_set_current_tab(editor, editor->current_tab - 1);
                 break;
 
