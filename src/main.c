@@ -22,6 +22,7 @@
 #include "colors.h"
 
 #include <stdlib.h>
+#include <string.h>
 
 int main()
 {
@@ -53,6 +54,41 @@ int main()
     while (!ret)
     {
         int ch = getch();
+        const char* kname = keyname(ch);
+
+        if (strcmp(kname, "kLFT3") == 0)
+        {
+            ch = KEY_ALT_LEFT;
+        }
+        else if (strcmp(kname, "kRIT3") == 0)
+        {
+            ch = KEY_ALT_RIGHT;
+        }
+        else if (strcmp(kname, "kLFT4") == 0)
+        {
+            ch = KEY_ALT_SHIFT_LEFT;
+        }
+        else if (strcmp(kname, "kRIT4") == 0)
+        {
+            ch = KEY_ALT_SHIFT_RIGHT;
+        }
+        else if (strcmp(kname, "kLFT5") == 0)
+        {
+            ch = KEY_CTRL_LEFT;
+        }
+        else if (strcmp(kname, "kRIT5") == 0)
+        {
+            ch = KEY_CTRL_RIGHT;
+        }
+        else if (strcmp(kname, "kLFT6") == 0)
+        {
+            ch = KEY_CTRL_SHIFT_LEFT;
+        }
+        else if (strcmp(kname, "kRIT6") == 0)
+        {
+            ch = KEY_CTRL_SHIFT_RIGHT;
+        }
+
         ret = text_editor_handle_input(editor, ch);
     }
 

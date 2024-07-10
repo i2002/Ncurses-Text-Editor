@@ -10,6 +10,15 @@
 #define E_SUCCESS         0
 #define E_INTERNAL_ERROR -1
 
+#define KEY_ALT_LEFT 1001
+#define KEY_ALT_RIGHT 1002
+#define KEY_ALT_SHIFT_LEFT 1003
+#define KEY_ALT_SHIFT_RIGHT 1004
+#define KEY_CTRL_LEFT 1005
+#define KEY_CTRL_RIGHT 1006
+#define KEY_CTRL_SHIFT_LEFT 1007
+#define KEY_CTRL_SHIFT_RIGHT 1008
+
 struct TextEditor
 {
     FileView **tabs;

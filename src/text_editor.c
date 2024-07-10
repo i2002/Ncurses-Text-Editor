@@ -27,14 +27,6 @@
 #define KEY_CTRL_V 22
 #define KEY_CTRL_X 24
 #define KEY_CTRL_Y 25
-#define KEY_ALT_LEFT 552
-#define KEY_ALT_RIGHT 567
-#define KEY_ALT_SHIFT_LEFT 545
-#define KEY_ALT_SHIFT_RIGHT 560
-#define KEY_CTRL_LEFT 546
-#define KEY_CTRL_RIGHT 561
-#define KEY_CTRL_SHIFT_LEFT 547
-#define KEY_CTRL_SHIFT_RIGHT 562
 
 static const char *menu_labels[MENU_ITEMS_SIZE] = {
     "(N)ew file        ",
