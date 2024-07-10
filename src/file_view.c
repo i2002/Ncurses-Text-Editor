@@ -403,9 +403,12 @@ int file_view_handle_input(FileView *view, int input)
             break;
 
         default:
-            res = file_data_insert_char(view->data, view->pos_y + view->scroll_offset, view->pos_x, (char) input);
-            cursor_move = KEY_RIGHT;
-            modified = 1;
+            if ((char) input == input)
+            {
+                res = file_data_insert_char(view->data, view->pos_y + view->scroll_offset, view->pos_x, (char) input);
+                cursor_move = KEY_RIGHT;
+                modified = 1;
+            }
             break;
     }
 

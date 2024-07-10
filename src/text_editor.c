@@ -29,6 +29,12 @@
 #define KEY_CTRL_Y 25
 #define KEY_ALT_LEFT 552
 #define KEY_ALT_RIGHT 567
+#define KEY_ALT_SHIFT_LEFT 545
+#define KEY_ALT_SHIFT_RIGHT 560
+#define KEY_CTRL_LEFT 546
+#define KEY_CTRL_RIGHT 561
+#define KEY_CTRL_SHIFT_LEFT 547
+#define KEY_CTRL_SHIFT_RIGHT 562
 
 static const char *menu_labels[MENU_ITEMS_SIZE] = {
     "(N)ew file        ",
@@ -703,11 +709,17 @@ int text_editor_handle_input(TextEditor *editor, int input)
                 break;
 
             // Cycle tabs
-            case KEY_ALT_RIGHT:
+            case KEY_ALT_LEFT:
+            case KEY_ALT_SHIFT_LEFT:
+            case KEY_CTRL_LEFT:
+            case KEY_CTRL_SHIFT_LEFT:
                 text_editor_set_current_tab(editor, editor->current_tab + 1);
                 break;
 
-            case KEY_ALT_LEFT:
+            case KEY_ALT_RIGHT:
+            case KEY_ALT_SHIFT_RIGHT:
+            case KEY_CTRL_RIGHT:
+            case KEY_CTRL_SHIFT_RIGHT:
                 text_editor_set_current_tab(editor, editor->current_tab - 1);
                 break;
 
