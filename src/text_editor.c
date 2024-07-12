@@ -705,14 +705,14 @@ int text_editor_handle_input(TextEditor *editor, int input)
             case KEY_ALT_SHIFT_LEFT:
             case KEY_CTRL_LEFT:
             case KEY_CTRL_SHIFT_LEFT:
-                text_editor_set_current_tab(editor, editor->current_tab + 1);
+                text_editor_set_current_tab(editor, editor->current_tab - 1);
                 break;
 
             case KEY_ALT_RIGHT:
             case KEY_ALT_SHIFT_RIGHT:
             case KEY_CTRL_RIGHT:
             case KEY_CTRL_SHIFT_RIGHT:
-                text_editor_set_current_tab(editor, editor->current_tab - 1);
+                text_editor_set_current_tab(editor, editor->current_tab + 1);
                 break;
 
             // Clipboard shortcuts
